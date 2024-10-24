@@ -26,15 +26,17 @@ function installedOnEdit(e)
   const range = e.range;
   const col = range.columnStart;
   const row = range.rowStart;
+  const colEnd = range.columnEnd;
   const rowEnd = range.rowEnd;
   const spreadsheet = e.source;
   const sheet = spreadsheet.getActiveSheet();
+  const sheetName = sheet.getSheetName();
 
-  if (sheet.getSheetName() === 'Search for Item Quantity or Amount ($)')
+  if (sheetName === 'Search for Item Quantity or Amount ($)')
   {
-    conditional: if (col == range.columnEnd)
+    conditional: if (col == colEnd || colEnd == null)
     {
-      if (row == 1 && col == 1 && (rowEnd == 16 || rowEnd == 1))
+      if (row == 1 && col == 1 && (rowEnd == row || rowEnd == 3))
         searchForQuantityOrAmount(spreadsheet, sheet)
       else if (row == rowEnd)
       {
@@ -51,52 +53,53 @@ function installedOnEdit(e)
       }
     }
   }
-  else if (sheet.getSheetName() === 'Search for Item Quantites Delimited by Customers')
+  else if (row == 1 && col == 1 && (rowEnd == row || rowEnd == 2) && (col == colEnd || colEnd == null))
   {
-    if (col == range.columnEnd && row == 1 && col == 1 && (rowEnd == 16 || rowEnd == 1))
+    if (sheetName === 'Search for Item Quantity partitioned by Customers')
       searchForCustomerQuantity(spreadsheet, sheet)
+    else if (sheetName === 'Search for Invoice #s')
+      searchForInvoice(spreadsheet, sheet)
   }
 }
 
-// /**
-//  * This function creates a new drop-down menu and also deletes the triggers that are not in use.
-//  * 
-//  * @author Jarren Ralf
-//  */
-// function installedOnOpen()
-// {
-//   const ui = SpreadsheetApp.getUi()
-//   var triggerFunction;
+/**
+ * This function creates a new drop-down menu and also deletes the triggers that are not in use.
+ * 
+ * @author Jarren Ralf
+ */
+function installedOnOpen()
+{
+  var triggerFunction;
 
-//   ui.createMenu('PNT Menu')
-//     .addSubMenu(ui.createMenu('📑 Display Instructions for Updating Data')
-//       .addItem('📉 Invoice', 'display_Invoice_Instructions') 
-//       .addItem('📈 Quantity or Amount', 'display_QuantityOrAmount_Instructions'))
-//     .addSubMenu(ui.createMenu('📊 Add New Customer')
-//       .addItem('🚣‍♂️ Charter or Guide', 'addNewCharterOrGuideCustomer')
-//       .addItem('🚢 Lodge', 'addNewLodgeCustomer'))
-//     .addSubMenu(ui.createMenu('🖱 Manually Update Data')
-//       .addItem('📉 Invoice', 'concatenateAllData')
-//       .addItem('📈 Quantity or Amount', 'collectAllHistoricalData'))
-//     .addToUi();
+  // ui.createMenu('PNT Menu')
+  //   .addSubMenu(ui.createMenu('📑 Display Instructions for Updating Data')
+  //     .addItem('📉 Invoice', 'display_Invoice_Instructions') 
+  //     .addItem('📈 Quantity or Amount', 'display_QuantityOrAmount_Instructions'))
+  //   .addSubMenu(ui.createMenu('📊 Add New Customer')
+  //     .addItem('🚣‍♂️ Charter or Guide', 'addNewCharterOrGuideCustomer')
+  //     .addItem('🚢 Lodge', 'addNewLodgeCustomer'))
+  //   .addSubMenu(ui.createMenu('🖱 Manually Update Data')
+  //     .addItem('📉 Invoice', 'concatenateAllData')
+  //     .addItem('📈 Quantity or Amount', 'collectAllHistoricalData'))
+  //   .addToUi();
 
-//   // Remove all of the unnecessary triggers. When running one-time triggers, they remain attached to the project (but disabled) and the project has a quota of 20 triggers per script
-//   ScriptApp.getProjectTriggers().map(trigger => {
-//     triggerFunction = trigger.getHandlerFunction();
-//     if (triggerFunction != 'onChange' && triggerFunction != 'installedOnEdit' && triggerFunction != 'installedOnOpen') // Keep all of the event triggers
-//       ScriptApp.deleteTrigger(trigger)
-//   })
-// }
+  // Remove all of the unnecessary triggers. When running one-time triggers, they remain attached to the project (but disabled) and the project has a quota of 20 triggers per script
+  ScriptApp.getProjectTriggers().map(trigger => {
+    triggerFunction = trigger.getHandlerFunction();
+    if (triggerFunction != 'onChange' && triggerFunction != 'installedOnEdit' && triggerFunction != 'installedOnOpen') // Keep all of the event triggers
+      ScriptApp.deleteTrigger(trigger)
+  })
+}
 
 /**
  * This function takes all of the yearly data that has been produced and it assimilates it into a set organized by item. Once the data is aggregated,
  * The current inventory, average, and next year prediction is calculated for each item.
  * 
+ * @param {Spreadsheet} spreadsheet : The active spreadsheet.
  * @author Jarren Ralf
  */
-function concatenateAllCustomerItemData()
+function concatenateAllCustomerItemData(spreadsheet)
 {
-  const spreadsheet = SpreadsheetApp.getActive();
   const qtySheet = spreadsheet.getSheetByName('Quantity Data')
   const currentYear = new Date().getFullYear();
   const numYears = 3;
@@ -133,7 +136,7 @@ function concatenateAllCustomerItemData()
   const numRows_AllQty = customerQuantityData.unshift(header)
   const quantityDataSheet = spreadsheet.getSheetByName('Customer Quantity Data');
   quantityDataSheet.clear().getRange(1, 1, numRows_AllQty, customerQuantityData[0].length).setValues(customerQuantityData);
-  spreadsheet.getSheetByName('Search for Item Quantites Delimited by Customers').getRange(1, numYears).setValue('Data was last updated on:\n\n' + new Date().toDateString()).offset(0, numYears - 5).activate();
+  spreadsheet.getSheetByName('Search for Item Quantity partitioned by Customers').getRange(1, numYears).setValue('Data was last updated on:\n\n' + new Date().toDateString()).offset(0, numYears - 5).activate();
   spreadsheet.toast('All Customer Quantity data has been updated.', 'COMPLETE', -1);
 }
 
@@ -149,26 +152,29 @@ function concatenateAllInvoiceData()
   const currentYear = new Date().getFullYear()
   var sheet, allData = [];
 
-  new Array(currentYear - 2012 + 1).fill('').map((_, y) => (currentYear - y).toString()).map(year => {
-    sheet = spreadsheet.getSheetByName(year)
+  new Array(3).fill('').map((_, y) => (currentYear - y).toString()).map(year => {
+    sheet = spreadsheet.getSheetByName(year + '_Inv')
+    spreadsheet.toast('Update complete. Concatenating all invoice data...', year, -1)
 
-    if (sheet !== null) // Reverse the data so that it is in descending date (as apposed to ascending), so the concatenations between years is seamless i.e. December 2017 is followed by January 2018
+    if (sheet !== null) // Reverse the data so that it is in descending date (as opposed to ascending), so the concatenations between years is seamless i.e. December 2017 is followed by January 2018
       allData.push(...sheet.getSheetValues(2, 1, sheet.getLastRow() - 1, 8).reverse());
   })
 
+  spreadsheet.toast('Concatenation complete. Writing data to spreadsheet', '', -1)
   const lastRow = allData.unshift(['Item Description', 'Customer Name', 'Date', 'Invoice #', 'Location', 'Salesperson', 'Quantity', 'Amount']);
-  spreadsheet.getSheetByName('All Data').clearContents().getRange(1, 1, lastRow, 8).setValues(allData)
+  spreadsheet.getSheetByName('Invoice Data').clearContents().getRange(1, 1, 1, 8).setFontSize(11).setFontWeight('bold').setBackground('#c0c0c0').offset(0, 0, lastRow, 8).setValues(allData);
+  spreadsheet.toast('Invoice data has been updated', 'COMPLETE', 60)
 }
 
 /**
  * This function takes all of the yearly data that has been produced and it assimilates it into a set organized by item. Once the data is aggregated,
  * The current inventory, average, and next year prediction is calculated for each item.
  * 
+ * @param {Spreadsheet} spreadsheet : The active spreadsheet.
  * @author Jarren Ralf
  */
-function concatenateAllItemData()
+function concatenateAllItemData(spreadsheet)
 {
-  const spreadsheet = SpreadsheetApp.getActive();
   spreadsheet.toast('This may take several minutes...', 'Beginning Data Collection', -1)
   const currentYear = new Date().getFullYear();
   const numYears = currentYear - 2012 + 1;
@@ -290,22 +296,22 @@ function concatenateAllItemData()
  * @author Jarren Ralf
  */
 function configureYearlyInvoiceData(values, spreadsheet)
-{/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+{
+  spreadsheet.toast('Sorting and reformatting the invoice data...', '', -1)
   const currentYear = new Date().getFullYear();
-
   values.shift() // Remove the header
   values.pop()   // Remove the final row which contains descriptive stats
-  const preData = values.sort(sortByDateThenInvoiveNumber)
-  const data = reformatData_YearlyInvoiceData(preData)
+  const data = reformatData_YearlyInvoiceData(values.sort(sortByDateThenInvoiceNumber))
   const year = new Array(currentYear - 2012 + 1).fill('').map((_, y) => (currentYear - y).toString()).reverse().find(p => p == data[0][2].getFullYear()) // The year that the data is representing
   const isSingleYear = data.every(date => date[2].getFullYear() == year);
 
   if (isSingleYear) // Does every line of this spreadsheet contain the same year?
   {
-    const numCols = 10;
+    spreadsheet.toast('Sorting and reformatting complete. Updating data for current year...', year, -1)
+    const numCols = 8;
     const sheets = spreadsheet.getSheets();
-    const previousSheet = sheets.find(sheet => sheet.getSheetName() == year)
-    var indexAdjustment = 2011
+    const previousSheet = sheets.find(sheet => sheet.getSheetName() == year + '_Inv')
+    var indexAdjustment = 2009
 
     if (previousSheet)
     {
@@ -314,16 +320,18 @@ function configureYearlyInvoiceData(values, spreadsheet)
     }
     
     SpreadsheetApp.flush();
-    const newSheet = spreadsheet.insertSheet(year, sheets.length - year + indexAdjustment).hideSheet().setColumnWidths(1, 2, 350).setColumnWidths(3, 7, 85).setColumnWidth(10, 150);
+    const newSheet = spreadsheet.insertSheet(year + '_Inv', sheets.length - year + indexAdjustment).hideSheet().setColumnWidth(1, 800).setColumnWidth(2, 350).setColumnWidths(3, 6, 85);
     SpreadsheetApp.flush();
-    const lastRow = data.unshift(['Item Description', 'Customer Name', 'Date', 'Invoice #', 'Location', 'Salesperson', 'Quantity', 'Amount', 'Customer', 'Item Number']);
-    newSheet.deleteColumns(11, 16)
+
+    const lastRow = data.unshift(['Item Description', 'Customer Name', 'Date', 'Invoice #', 'Location', 'Salesperson', 'Quantity', 'Amount']);
+    newSheet.deleteColumns(9, 18)
     newSheet.setTabColor('#a64d79').setFrozenRows(1)
     newSheet.protect()
-    newSheet.getRange(1, 1, 1, numCols).setFontSize(11).setFontWeight('bold').offset(0, 0, lastRow, numCols).setNumberFormat('@').setValues(data)
+    newSheet.getRange(1, 1, 1, numCols).setFontSize(11).setFontWeight('bold').setBackground('#c0c0c0').offset(0, 0, lastRow, numCols).setNumberFormat('@').setValues(data)
 
     ScriptApp.newTrigger('concatenateAllInvoiceData').timeBased().after(500).create() // Concatenate all of the data
-    spreadsheet.getSheetByName('Search for Invoice #s').getRange(1, 1).activate()
+    spreadsheet.getSheetByName('Search for Invoice #s').getRange(1, 1).activate();
+    spreadsheet.toast('The data will be updated in less than 5 minutes.', 'COMPLETE')
   }
   else
     Browser.msgBox('Incorrect Data', 'Data contains more than one year.', Browser.Buttons.OK)
@@ -350,16 +358,16 @@ function reformatData_YearlyInvoiceData(preData)
 
     if (item != null)
       return (itemVals[3].toString().length === 9 && itemVals[3].toString().charAt('I')) ?
-        [item[fullDescription], itemVals[1], itemVals[2], itemVals[3].substring(1), itemVals[4], itemVals[5], itemVals[6], itemVals[7], itemVals[8], itemVals[9]] :
+        [item[fullDescription], itemVals[1] + ' [' + itemVals[8] + ']', itemVals[2], itemVals[3].substring(1), itemVals[4], itemVals[5], itemVals[6], itemVals[7]] :
       (itemVals[3].toString().length === 8 && itemVals[3].toString().charAt('I')) ?
-        [item[fullDescription], itemVals[1], itemVals[2], '0' + itemVals[3].substring(1), itemVals[4], itemVals[5], itemVals[6], itemVals[7], itemVals[8], itemVals[9]] : 
-        [item[fullDescription], itemVals[1], itemVals[2], itemVals[3], itemVals[4], itemVals[5], itemVals[6], itemVals[7], itemVals[8], itemVals[9]]
+        [item[fullDescription], itemVals[1] + ' [' + itemVals[8] + ']', itemVals[2], '0' + itemVals[3].substring(1), itemVals[4], itemVals[5], itemVals[6], itemVals[7]] : 
+        [item[fullDescription], itemVals[1] + ' [' + itemVals[8] + ']', itemVals[2], itemVals[3], itemVals[4], itemVals[5], itemVals[6], itemVals[7]]
     else
       return (itemVals[3].toString().length === 9 && itemVals[3].toString().charAt('I')) ? 
-        [itemVals[0] + ' - - - - ' + itemVals[9], itemVals[1], itemVals[2], itemVals[3].substring(1), itemVals[4], itemVals[5], itemVals[6], itemVals[7], itemVals[8], itemVals[9]] : 
+        [itemVals[0] + ' - - - - ' + itemVals[9], itemVals[1] + ' [' + itemVals[8] + ']', itemVals[2], itemVals[3].substring(1), itemVals[4], itemVals[5], itemVals[6], itemVals[7]] : 
       (itemVals[3].toString().length === 8 && itemVals[3].toString().charAt('I')) ? 
-        [itemVals[0] + ' - - - - ' + itemVals[9], itemVals[1], itemVals[2], '0' + itemVals[3].substring(1), itemVals[4], itemVals[5], itemVals[6], itemVals[7], itemVals[8], itemVals[9]] : 
-        [itemVals[0] + ' - - - - ' + itemVals[9], itemVals[1], itemVals[2], itemVals[3], itemVals[4], itemVals[5], itemVals[6], itemVals[7], itemVals[8], itemVals[9]]
+        [itemVals[0] + ' - - - - ' + itemVals[9], itemVals[1] + ' [' + itemVals[8] + ']', itemVals[2], '0' + itemVals[3].substring(1), itemVals[4], itemVals[5], itemVals[6], itemVals[7]] : 
+        [itemVals[0] + ' - - - - ' + itemVals[9], itemVals[1] + ' [' + itemVals[8] + ']', itemVals[2], itemVals[3], itemVals[4], itemVals[5], itemVals[6], itemVals[7]]
   })
 }
 
@@ -453,7 +461,7 @@ function processImportedData(e)
   {
     var spreadsheet = e.source;
     var sheets = spreadsheet.getSheets();
-    var info, numRows = 0, numCols = 1, maxRow = 2, maxCol = 3, isYearlyItemData = 4, isYearlyCustomerItemData = 5;
+    var info, numRows = 0, numCols = 1, maxRow = 2, maxCol = 3, isYearlyItemData = 4, isYearlyCustomerItemData = 5, isYearlyInvoiceData = 6;
 
     for (var sheet = sheets.length - 1; sheet >= 0; sheet--) // Loop through all of the sheets in this spreadsheet and find the new one
     {
@@ -465,13 +473,14 @@ function processImportedData(e)
           sheets[sheet].getMaxRows(),
           sheets[sheet].getMaxColumns(),
           sheets[sheet].getRange(1, 3).getValue().toString().includes('Quantity Specif'), // A characteristic of the item data
-          sheets[sheet].getRange(1, 4).getValue().toString().includes('Customer name')    // A characteristic of the customer item data
+          sheets[sheet].getRange(1, 4).getValue().toString().includes('Customer name'),   // A characteristic of the customer item data
+          sheets[sheet].getRange(1, 7).getValue().toString().includes('Quantity Specif')  // A characteristic of the invoice data
         ]
       
         // A new sheet is imported by File -> Import -> Insert new sheet(s) - The left disjunct is for a csv and the right disjunct is for an excel file
         if ((info[maxRow] - info[numRows] === 2 && info[maxCol] - info[numCols] === 2) || 
             (info[maxRow] === 1000 && info[maxCol] === 26 && info[numRows] !== 0 && info[numCols] !== 0) ||
-            info[isYearlyItemData] || info[isYearlyCustomerItemData]) 
+            info[isYearlyItemData] || info[isYearlyCustomerItemData] || info[isYearlyInvoiceData]) 
         {
           spreadsheet.toast('Processing imported data...', '', 60)
           const values = sheets[sheet].getSheetValues(1, 1, info[numRows], info[numCols]); 
@@ -486,16 +495,18 @@ function processImportedData(e)
           if (info[isYearlyItemData])
           {
             updateYearlyItemData(values, fileName, doesPreviousSheetExist, spreadsheet)
-            concatenateAllItemData()
-            spreadsheet.getSheetByName('Search for Item Quantity or Amount ($)').getRange(1, 1).activate()
+            concatenateAllItemData(spreadsheet);
           }
           else if (info[isYearlyCustomerItemData])
           {
             updateYearlyCustomerItemData(values, fileName, spreadsheet)
-            concatenateAllCustomerItemData()
-            spreadsheet.getSheetByName('Search for Item Quantites Delimited by Customers').getRange(1, 1).activate()
+            concatenateAllCustomerItemData(spreadsheet)  
           }
-          
+          else if (info[isYearlyInvoiceData])
+          {
+            configureYearlyInvoiceData(values, spreadsheet)
+          }
+            
           break;
         }
       }
@@ -690,6 +701,646 @@ function searchForCustomerQuantity(spreadsheet, sheet)
 }
 
 /**
+ * This function searches all of the data for the keywords chosen by the user for the purchase of discovering the invoice numbers that contain the keywords.
+ * 
+ * @param {Spreadsheet}  spreadsheet : The spreadsheet that is being edited
+ * @param    {Sheet}        sheet    : The sheet that is being edited
+ * @author Jarren Ralf 
+ */
+function searchForInvoice(spreadsheet, sheet)
+{
+  const startTime = new Date().getTime();
+  const YELLOW = "#ffe599";
+  const searchResultsDisplayRange = sheet.getRange(1, 6); // The range that will display the number of items found by the search
+  const functionRunTimeRange = sheet.getRange(2, 6);      // The range that will display the runtimes for the search and formatting
+  const itemSearchFullRange = sheet.getRange(4, 1, sheet.getMaxRows() - 3, 8); // The entire range of the Item Search page
+  const invoiceNumberList = [], highlightedRows = []
+  const searchforItems_FilterByCustomer = sheet.getRange(1, 1, 2).clearFormat()                     // Clear the formatting of the range of the search box
+    .setBorder(true, true, true, true, null, null, 'black', SpreadsheetApp.BorderStyle.SOLID_THICK) // Set the border
+    .setFontFamily("Arial").setFontColor("black").setFontWeight("bold").setFontSize(14)             // Set the various font parameters
+    .setHorizontalAlignment("center").setVerticalAlignment("middle")                                // Set the alignment
+    .setWrapStrategy(SpreadsheetApp.WrapStrategy.WRAP)                                              // Set the wrap strategy
+    .merge().trimWhitespace()                                                                       // Merge and trim the whitespaces at the end of the string
+    .getValue().toString().toUpperCase().split(' BY ')                                              // Split the search string at the word 'not'
+
+  const searchforItems_FilterByDate = searchforItems_FilterByCustomer[0].split(' IN ')
+  const searchesOrNot = searchforItems_FilterByDate[0].split(' NOT ')
+  const searches = searchesOrNot[0].split(' OR ').map(words => words.split(/\s+/)) // Split the search values up by the word 'or' and split the results of that split by whitespace
+
+  if (isNotBlank(searches[0][0])) // If the value in the search box is NOT blank, then compute the search
+  {
+    spreadsheet.toast('Lots of data to parse, this will take about 1 minute.', 'Searching...', -1)
+
+    if (searchforItems_FilterByCustomer.length === 1) // The word 'by' WASN'T found in the string
+    {
+      if (searchforItems_FilterByDate.length === 1) // The word 'in' wasn't sound in the string
+      {
+        if (searchesOrNot.length === 1) // The word 'not' WASN'T found in the string
+        {
+          const numSearches = searches.length; // The number searches
+          const dataSheet = spreadsheet.getSheetByName('Invoice Data')
+          var data = dataSheet.getSheetValues(2, 1, dataSheet.getLastRow() - 1, 8);
+          var numSearchWords, col; // Which column of data to search ** Default is item description
+
+          switch (searches[0][0].substring(0, 3)) // Based on the search indicator, set the column of data to search in
+          {
+            case 'CUS':
+              col = 1;
+              searches[0].shift()
+              break;
+            case 'DAT':
+              col = 2;
+              searches[0].shift()
+              break;
+            case 'INV':
+              col = 3;
+              searches[0].shift()
+              break;
+            case 'LOC':
+              col = 4;
+              searches[0].shift()
+              break;
+            case 'SAL':
+              col = 5;
+              searches[0].shift()
+              break;
+            default:
+              col = 0;
+          }
+
+          if (col < 2 || col === 3) // Search item descriptions, customer names or invoice numbers
+          {
+            for (var i = 0; i < data.length; i++) // Loop through all of the descriptions from the search data
+            {
+              loop: for (var j = 0; j < numSearches; j++) // Loop through the number of searches
+              {
+                numSearchWords = searches[j].length - 1;
+
+                for (var k = 0; k <= numSearchWords; k++) // Loop through each word in each set of searches
+                {
+                  if (data[i][col].toString().toUpperCase().includes(searches[j][k])) // Does column 'col' of the i-th row of data contain the k-th search word in the j-th search
+                  {
+                    if (k === numSearchWords) // The last search word was succesfully found in the ith item, and thus, this item is returned in the search
+                    {
+                      if (col === 0) highlightedRows.push(data[i][0]) // Push description if we are doing a regular item search
+                      if (!invoiceNumberList.includes(data[i][3])) invoiceNumberList.push(data[i][3]); // Add the invoice number to the list (if it is not already there)
+                      break loop;
+                    }
+                  }
+                  else
+                    break; // One of the words in the User's query was NOT contained in the ith item description, therefore move on to the next item
+                }
+              }
+            }
+          }
+          else if (col === 2) // Search the date
+          {
+            // The DATE.getMonth() function returns a numeral instead of the name of a month. Use this object to map to the month name.
+            const months = {'JAN': 0, 'FEB': 1, 'MAR': 2, 'APR': 3, 'May': 4, 'JUN': 5, 'JUL': 6, 'AUG': 7, 'SEP': 8, 'OCT': 9, 'NOV': 10, 'DEC': 11} 
+
+            for (var i = 0; i < data.length; i++) // Loop through all of the descriptions from the search data
+            {
+              loop: for (var j = 0; j < numSearches; j++) // Loop through the number of searches
+              {
+                numSearchWords = searches[j].length;
+
+                if (numSearchWords === 1) // Assumed to be year only
+                {
+                  if (searches[j][0].toString().length === 4) // Check that the year is 4 digits
+                  {
+                    if (data[i][col].toString().toUpperCase().includes(searches[j][0])) // Does column 'col' of the i-th row of data contain the year being searched for
+                    {
+                      if (!invoiceNumberList.includes(data[i][3])) invoiceNumberList.push(data[i][3]); // Add the invoice number to the list (if it is not already there)
+                      break loop;
+                    }
+                    else
+                      break; // One of the words in the User's query was NOT contained in the ith item description, therefore move on to the next item
+                  }
+                }
+                else if (numSearchWords === 2) // Assumed to be month and year
+                {
+                  if (searches[j][1].toString().length === 4 && searches[j][0].toString().length >= 3) // Check that the year is 4 digits, and the month is atleast 3 characters
+                  {     
+                    // Does column 'col' of the i-th row of data contain the year and month being searched for
+                    if (data[i][col].getFullYear() == searches[j][1] && data[i][col].getMonth() == months[searches[j][0].substring(0, 3)])
+                    {
+                      if (!invoiceNumberList.includes(data[i][3])) invoiceNumberList.push(data[i][3]); // Add the invoice number to the list (if it is not already there)
+                      break loop;
+                    }
+                    else
+                      break; // One of the words in the User's query was NOT contained in the ith item description, therefore move on to the next item
+                  }
+                }
+                else if (numSearchWords === 3) // Assumed to be day, month, and year
+                {
+                  // Check that the year is 4 digits, the month is atleast 3 characters, and the day is at most 2 characters
+                  if (searches[j][2].toString().length === 4 && searches[j][1].toString().length >= 3 && searches[j][0].toString().length <= 2)
+                  {
+                    // Does column 'col' of the i-th row of data contain the year, month, and day being searched for
+                    if (data[i][col].getDate() == searches[j][0] && data[i][col].getFullYear() == searches[j][2] && data[i][col].getMonth() == months[searches[j][1].substring(0, 3)])
+                    {
+                      if (!invoiceNumberList.includes(data[i][3])) invoiceNumberList.push(data[i][3]); // Add the invoice number to the list (if it is not already there)
+                      break loop;
+                    }
+                    else
+                      break; // One of the words in the User's query was NOT contained in the ith item description, therefore move on to the next item
+                  }
+                }
+              }
+            }
+          }
+          else // Search the location or salesperson ** So much data that we will limit the search to 3 years
+          {
+            const threeYearsAgo = new Date().getFullYear() - 3;
+
+            endSearch: for (var i = 0; i < data.length; i++) // Loop through all of the descriptions from the search data
+            {
+              loop: for (var j = 0; j < numSearches; j++) // Loop through the number of searches
+              {
+                numSearchWords = searches[j].length - 1;
+
+                for (var k = 0; k <= numSearchWords; k++) // Loop through each word in each set of searches
+                {
+                  if (data[i][col].toString().toUpperCase().includes(searches[j][k])) // Does column 'col' of the i-th row of data contain the k-th search word in the j-th search
+                  {
+                    if (k === numSearchWords) // The last search word was succesfully found in the ith item, and thus, this item is returned in the search
+                    {
+                      if (!data[i][2].toString().toUpperCase().includes(threeYearsAgo)) // Data is sorted in descending order, so the most recent years will not contains the (currentYear - 3)
+                      {
+                        if (!invoiceNumberList.includes(data[i][3])) invoiceNumberList.push(data[i][3]); // Add the invoice number to the list (if it is not already there)
+                        break loop;
+                      }
+                      else // This is the first instance of a row of data with a date that contains a date from 3 years ago
+                        break endSearch; // Up to three years of data has been found. Stop searching.
+                    }
+                  }
+                  else
+                    break; // One of the words in the User's query was NOT contained in the ith item description, therefore move on to the next item
+                }
+              }
+            }
+          }
+        }
+        else // The word 'not' was found in the search string
+        {
+          const dontIncludeTheseWords = searchesOrNot[1].split(/\s+/);
+          const numWordsToNotInclude = dontIncludeTheseWords.length - 1;
+          const numSearches = searches.length; // The number searches
+          const dataSheet = spreadsheet.getSheetByName('All Data')
+          var data = dataSheet.getSheetValues(2, 1, dataSheet.getLastRow() - 1, 8);
+          var numSearchWords;
+
+          for (var i = 0; i < data.length; i++) // Loop through all of the descriptions from the search data
+          {
+            loop: for (var j = 0; j < numSearches; j++) // Loop through the number of searches
+            {
+              numSearchWords = searches[j].length - 1;
+
+              for (var k = 0; k <= numSearchWords; k++) // Loop through each word in each set of searches
+              {
+                if (data[i][0].toString().toUpperCase().includes(searches[j][k])) // Does the i-th item description contain the k-th search word in the j-th search
+                {
+                  if (k === numSearchWords) // The last search word was succesfully found in the ith item, and thus, this item is returned in the search
+                  {
+                    for (var l = 0; l <= numWordsToNotInclude; l++) // Loop through the number of words to not include
+                    {
+                      if (!data[i][0].toString().toUpperCase().includes(dontIncludeTheseWords[l])) // The i-th description DOES NOT contain the l-th word (of the words that shouldn't be included)
+                      {
+                        if (l === numWordsToNotInclude) // The i-th description does not include any the words that it is not suppose to
+                        {
+                          highlightedRows.push(data[i][0]) // Push description
+                          if (!invoiceNumberList.includes(data[i][3])) invoiceNumberList.push(data[i][3]); // Add the invoice number to the list (if it is not already there)
+                          break loop;
+                        }
+                      }
+                      else
+                        break;
+                    }
+                  }
+                }
+                else
+                  break; // One of the words in the User's query was NOT contained in the ith item description, therefore move on to the next item 
+              }
+            }
+          }
+        }
+      }
+      else // The word 'in' was found in the string
+      {
+        const dateSearch = searchforItems_FilterByDate[1].toString().split(" ");
+
+        if (searchesOrNot.length === 1) // The word 'not' WASN'T found in the string
+        {
+
+
+
+
+          // // The DATE.getMonth() function returns a numeral instead of the name of a month. Use this object to map to the month name.
+          //   const months = {'JAN': 0, 'FEB': 1, 'MAR': 2, 'APR': 3, 'May': 4, 'JUN': 5, 'JUL': 6, 'AUG': 7, 'SEP': 8, 'OCT': 9, 'NOV': 10, 'DEC': 11} 
+
+          //   for (var i = 0; i < data.length; i++) // Loop through all of the descriptions from the search data
+          //   {
+          //     loop: for (var j = 0; j < numSearches; j++) // Loop through the number of searches
+          //     {
+          //       numSearchWords = searches[j].length;
+
+          //       if (numSearchWords === 1) // Assumed to be year only
+          //       {
+          //         if (searches[j][0].toString().length === 4) // Check that the year is 4 digits
+          //         {
+          //           if (data[i][col].toString().toUpperCase().includes(searches[j][0])) // Does column 'col' of the i-th row of data contain the year being searched for
+          //           {
+          //             if (!invoiceNumberList.includes(data[i][3])) invoiceNumberList.push(data[i][3]); // Add the invoice number to the list (if it is not already there)
+          //             break loop;
+          //           }
+          //           else
+          //             break; // One of the words in the User's query was NOT contained in the ith item description, therefore move on to the next item
+          //         }
+          //       }
+          //       else if (numSearchWords === 2) // Assumed to be month and year
+          //       {
+          //         if (searches[j][1].toString().length === 4 && searches[j][0].toString().length >= 3) // Check that the year is 4 digits, and the month is atleast 3 characters
+          //         {     
+          //           // Does column 'col' of the i-th row of data contain the year and month being searched for
+          //           if (data[i][col].getFullYear() == searches[j][1] && data[i][col].getMonth() == months[searches[j][0].substring(0, 3)])
+          //           {
+          //             if (!invoiceNumberList.includes(data[i][3])) invoiceNumberList.push(data[i][3]); // Add the invoice number to the list (if it is not already there)
+          //             break loop;
+          //           }
+          //           else
+          //             break; // One of the words in the User's query was NOT contained in the ith item description, therefore move on to the next item
+          //         }
+          //       }
+          //       else if (numSearchWords === 3) // Assumed to be day, month, and year
+          //       {
+          //         // Check that the year is 4 digits, the month is atleast 3 characters, and the day is at most 2 characters
+          //         if (searches[j][2].toString().length === 4 && searches[j][1].toString().length >= 3 && searches[j][0].toString().length <= 2)
+          //         {
+          //           // Does column 'col' of the i-th row of data contain the year, month, and day being searched for
+          //           if (data[i][col].getDate() == searches[j][0] && data[i][col].getFullYear() == searches[j][2] && data[i][col].getMonth() == months[searches[j][1].substring(0, 3)])
+          //           {
+          //             if (!invoiceNumberList.includes(data[i][3])) invoiceNumberList.push(data[i][3]); // Add the invoice number to the list (if it is not already there)
+          //             break loop;
+          //           }
+          //           else
+          //             break; // One of the words in the User's query was NOT contained in the ith item description, therefore move on to the next item
+          //         }
+          //       }
+          //     }
+          //   }
+
+
+
+          const numSearches = searches.length; // The number searches
+          const dataSheet = spreadsheet.getSheetByName('All Data')
+          var data = dataSheet.getSheetValues(2, 1, dataSheet.getLastRow() - 1, 8);
+          var numSearchWords, col; // Which column of data to search ** Default is item description
+
+          for (var i = 0; i < data.length; i++) // Loop through all of the descriptions from the search data
+          {
+            loop: for (var j = 0; j < numSearches; j++) // Loop through the number of searches
+            {
+              numSearchWords = searches[j].length - 1;
+
+              for (var k = 0; k <= numSearchWords; k++) // Loop through each word in each set of searches
+              {
+                if (data[i][0].toString().toUpperCase().includes(searches[j][k])) // Does column 'col' of the i-th row of data contain the k-th search word in the j-th search
+                {
+                  if (k === numSearchWords) // The last search word was succesfully found in the ith item, and thus, this item is returned in the search
+                  {
+                    if (col === 0) highlightedRows.push(data[i][0]) // Push description if we are doing a regular item search
+                    if (!invoiceNumberList.includes(data[i][3])) invoiceNumberList.push(data[i][3]); // Add the invoice number to the list (if it is not already there)
+                    break loop;
+                  }
+                }
+                else
+                  break; // One of the words in the User's query was NOT contained in the ith item description, therefore move on to the next item
+              }
+            }
+          }
+        }
+        else // The word 'not' was found in the search string
+        {
+          const dontIncludeTheseWords = searchesOrNot[1].split(/\s+/);
+          const numWordsToNotInclude = dontIncludeTheseWords.length - 1;
+          const numSearches = searches.length; // The number searches
+          const dataSheet = spreadsheet.getSheetByName('All Data')
+          var data = dataSheet.getSheetValues(2, 1, dataSheet.getLastRow() - 1, 8);
+          var numSearchWords;
+
+          for (var i = 0; i < data.length; i++) // Loop through all of the descriptions from the search data
+          {
+            loop: for (var j = 0; j < numSearches; j++) // Loop through the number of searches
+            {
+              numSearchWords = searches[j].length - 1;
+
+              for (var k = 0; k <= numSearchWords; k++) // Loop through each word in each set of searches
+              {
+                if (data[i][0].toString().toUpperCase().includes(searches[j][k])) // Does the i-th item description contain the k-th search word in the j-th search
+                {
+                  if (k === numSearchWords) // The last search word was succesfully found in the ith item, and thus, this item is returned in the search
+                  {
+                    for (var l = 0; l <= numWordsToNotInclude; l++) // Loop through the number of words to not include
+                    {
+                      if (!data[i][0].toString().toUpperCase().includes(dontIncludeTheseWords[l])) // The i-th description DOES NOT contain the l-th word (of the words that shouldn't be included)
+                      {
+                        if (l === numWordsToNotInclude) // The i-th description does not include any the words that it is not suppose to
+                        {
+                          highlightedRows.push(data[i][0]) // Push description
+                          if (!invoiceNumberList.includes(data[i][3])) invoiceNumberList.push(data[i][3]); // Add the invoice number to the list (if it is not already there)
+                          break loop;
+                        }
+                      }
+                      else
+                        break;
+                    }
+                  }
+                }
+                else
+                  break; // One of the words in the User's query was NOT contained in the ith item description, therefore move on to the next item 
+              }
+            }
+          }
+        }
+      }
+    }
+    else // The word 'by' was found in the string
+    {
+      const customersSearches = searchforItems_FilterByCustomer[1].split(' OR ').map(words => words.split(/\s+/)); // Multiple customers can be searched for
+
+      if (customersSearches.length === 1) // Search for one customer
+      {
+        if (searchesOrNot.length === 1) // The word 'not' WASN'T found in the string
+        {
+          const numSearches = searches.length; // The number searches
+          const numCustomerSearchWords = customersSearches[0].length - 1;
+          const dataSheet = spreadsheet.getSheetByName('All Data')
+          var data = dataSheet.getSheetValues(2, 1, dataSheet.getLastRow() - 1, 8);
+          var numSearchWords;
+
+          for (var i = 0; i < data.length; i++) // Loop through all of the customers and descriptions from the search data
+          {
+            loop: for (var j = 0; j < numSearches; j++) // Loop through the number of searches
+            {
+              numSearchWords = searches[j].length - 1;
+
+              for (var k = 0; k <= numSearchWords; k++) // Loop through each word in each set of searches
+              {
+                if (data[i][0].toString().toUpperCase().includes(searches[j][k])) // Does the i-th item description contain the k-th search word in the j-th search
+                {
+                  if (k === numSearchWords) // The last search word was succesfully found in the ith item, and thus, this item is returned in the search
+                  {
+                    for (var l = 0; l <= numCustomerSearchWords; l++) // Loop through each word in the customer search
+                    {
+                      if (data[i][1].toString().toUpperCase().includes(customersSearches[0][l])) // Does the i-th customer name contain the l-th search word
+                      {
+                        if (l === numCustomerSearchWords) // All of the customer search words were located in the customer's name
+                        {
+                          highlightedRows.push(data[i][0]) // Push description
+                          if (!invoiceNumberList.includes(data[i][3])) invoiceNumberList.push(data[i][3]); // Add the invoice number to the list (if it is not already there)
+                          break loop;
+                        }
+                      }
+                      else
+                        break; // One of the words in the User's query was NOT contained in the ith item description, therefore move on to the next item
+                    }
+                  }
+                }
+                else
+                  break; // One of the words in the User's query was NOT contained in the ith item description, therefore move on to the next item
+              }
+            }
+          }
+        }
+        else // The word 'not' was found in the search string
+        {
+          const dontIncludeTheseWords = searchesOrNot[1].split(/\s+/);
+          const numWordsToNotInclude = dontIncludeTheseWords.length - 1;
+          const numSearches = searches.length; // The number searches
+          const numCustomerSearchWords = customersSearches[0].length - 1;
+          const dataSheet = spreadsheet.getSheetByName('All Data')
+          var data = dataSheet.getSheetValues(2, 1, dataSheet.getLastRow() - 1, 8);
+          var numSearchWords;
+
+          for (var i = 0; i < data.length; i++) // Loop through all of the customers and descriptions from the search data
+          {
+            loop: for (var j = 0; j < numSearches; j++) // Loop through the number of searches
+            {
+              numSearchWords = searches[j].length - 1;
+
+              for (var k = 0; k <= numSearchWords; k++) // Loop through each word in each set of searches
+              {
+                if (data[i][0].toString().toUpperCase().includes(searches[j][k])) // Does the i-th item description contain the k-th search word in the j-th search
+                {
+                  if (k === numSearchWords) // The last search word was succesfully found in the ith item, and thus, this item is returned in the search
+                  {
+                    for (var l = 0; l <= numWordsToNotInclude; l++) // Loop through the number of words to not include
+                    {
+                      if (!data[i][0].toString().toUpperCase().includes(dontIncludeTheseWords[l])) // The i-th description DOES NOT contain the l-th word (of the words that shouldn't be included)
+                      {
+                        if (l === numWordsToNotInclude) // The i-th description does not include any the words that it is not suppose to
+                        {
+                          for (var l = 0; l <= numCustomerSearchWords; l++) // Loop through the number of customer search words
+                          {
+                            if (data[i][1].toString().toUpperCase().includes(customersSearches[0][l])) // The i-th customer name contains the l-th word of the customer search
+                            {
+                              if (l === numCustomerSearchWords) // All of the customer search words were located in the customer's name
+                              {
+                                highlightedRows.push(data[i][0]) // Push description
+                                if (!invoiceNumberList.includes(data[i][3])) invoiceNumberList.push(data[i][3]); // Add the invoice number to the list (if it is not already there)
+                                break loop;
+                              }
+                            }
+                            else
+                              break; // One of the words in the User's query was NOT contained in the ith item description, therefore move on to the next item
+                          }
+                        }
+                      }
+                      else
+                        break;
+                    }
+                  }
+                }
+                else
+                  break; // One of the words in the User's query was NOT contained in the ith item description, therefore move on to the next item 
+              }
+            }
+          }
+        }
+      }
+      else // Searching for multiple customers
+      {
+        if (searchesOrNot.length === 1) // The word 'not' WASN'T found in the string
+        {
+          const numSearches = searches.length; // The number searches
+          const numCustomerSearches = customersSearches.length; // The number of customer searches
+          const dataSheet = spreadsheet.getSheetByName('All Data')
+          var data = dataSheet.getSheetValues(2, 1, dataSheet.getLastRow() - 1, 8);
+          var numSearchWords, numCustomerSearchWords;
+
+          for (var i = 0; i < data.length; i++) // Loop through all of the customers and descriptions from the search data
+          {
+            loop: for (var j = 0; j < numSearches; j++) // Loop through the number of searches
+            {
+              numSearchWords = searches[j].length - 1;
+
+              for (var k = 0; k <= numSearchWords; k++) // Loop through each word in each set of searches
+              {
+                if (data[i][0].toString().toUpperCase().includes(searches[j][k])) // Does the i-th item description contain the k-th search word in the j-th search
+                {
+                  if (k === numSearchWords) // The last search word was succesfully found in the ith item, and thus, this item is returned in the search
+                  {
+                    for (var l = 0; l < numCustomerSearches; l++) // Loop through the number of customer searches
+                    {
+                      numCustomerSearchWords = customersSearches[l].length - 1;
+
+                      for (var m = 0; m <= numCustomerSearchWords; m++) // Loop through the number of customer search words
+                      {
+                        if (data[i][1].toString().toUpperCase().includes(customersSearches[l][m])) // Does the i-th customer name contain the m-th search word in the l-th search
+                        {
+                          if (m === numCustomerSearchWords) // The last customer search word was successfully found in the customer name
+                          {
+                            highlightedRows.push(data[i][0]) // Push description
+                            if (!invoiceNumberList.includes(data[i][3])) invoiceNumberList.push(data[i][3]); // Add the invoice number to the list (if it is not already there)
+                            break loop;
+                          }
+                        }
+                        else
+                          break;
+                      }
+                    }
+                  }
+                }
+                else
+                  break; // One of the words in the User's query was NOT contained in the ith item description, therefore move on to the next item
+              }
+            }
+          }
+        }
+        else // The word 'not' was found in the search string
+        {
+          const dontIncludeTheseWords = searchesOrNot[1].split(/\s+/);
+          const numWordsToNotInclude = dontIncludeTheseWords.length - 1;
+          const numSearches = searches.length; // The number searches
+          const numCustomerSearches = customersSearches.length; // The number of customer searches
+          const dataSheet = spreadsheet.getSheetByName('All Data')
+          var data = dataSheet.getSheetValues(2, 1, dataSheet.getLastRow() - 1, 8);
+          var numSearchWords, numCustomerSearchWords;
+
+          for (var i = 0; i < data.length; i++) // Loop through all of the customers and descriptions from the search data
+          {
+            loop: for (var j = 0; j < numSearches; j++) // Loop through the number of searches
+            {
+              numSearchWords = searches[j].length - 1;
+
+              for (var k = 0; k <= numSearchWords; k++) // Loop through each word in each set of searches
+              {
+                if (data[i][0].toString().toUpperCase().includes(searches[j][k])) // Does the i-th item description contain the k-th search word in the j-th search
+                {
+                  if (k === numSearchWords) // The last search word was succesfully found in the ith item, and thus, this item is returned in the search
+                  {
+                    for (var l = 0; l <= numWordsToNotInclude; l++) // Loop through the number of words to not include
+                    {
+                      if (!data[i][0].toString().toUpperCase().includes(dontIncludeTheseWords[l])) // The i-th description DOES NOT contain the l-th word (of the words that shouldn't be included)
+                      {
+                        if (l === numWordsToNotInclude) // The i-th description does not include any the words that it is not suppose to
+                        {
+                          for (var m = 0; m < numCustomerSearches; m++) // Loop through the number of customer searchs
+                          {
+                            numCustomerSearchWords = customersSearches[m].length - 1;
+
+                            for (var n = 0; n <= numCustomerSearchWords; n++) // Loop through the number of customer search words
+                            {
+                              if (data[i][1].toString().toUpperCase().includes(customersSearches[m][n])) // Does the i-th customer name contain the n-th search word in the m-th search
+                              {
+                                if (n === numCustomerSearchWords) // The last customer search word was successfully found in the customer name
+                                {
+                                  highlightedRows.push(data[i][0]) // Push description
+                                  if (!invoiceNumberList.includes(data[i][3])) invoiceNumberList.push(data[i][3]); // Add the invoice number to the list (if it is not already there)
+                                  break loop;
+                                }
+                              }
+                              else
+                                break;
+                            }
+                          }
+                        }
+                      }
+                      else
+                        break;
+                    }
+                  }
+                }
+                else
+                  break; // One of the words in the User's query was NOT contained in the ith item description, therefore move on to the next item 
+              }
+            }
+          }
+        }
+      }
+    }
+
+    if (invoiceNumberList.length !== 0)
+    {
+      var output = data.filter(value => invoiceNumberList.includes(value[3]))
+      var numItems = output.length;
+      var numFormats = new Array(numItems).fill(['@', '@', 'dd MMM yyyy', '@', '@', '@', '@', '$#,##0.00'])
+
+      var backgrounds = output.map(description => {
+        if (highlightedRows.includes(description[0]))
+          return [YELLOW, YELLOW, YELLOW, YELLOW, YELLOW, YELLOW, YELLOW, YELLOW]
+        else
+          return ['White', 'White', 'White', 'White', 'White', 'White', 'White', 'White']
+      })
+    }
+    else
+    {
+      var output = [];
+      var numItems = 0;
+    }
+
+    if (numItems === 0) // No items were found
+    {
+      sheet.getRange('A1').activate(); // Move the user back to the seachbox
+      itemSearchFullRange.clearContent().setBackground('white'); // Clear content
+      const textStyle = SpreadsheetApp.newTextStyle().setBold(true).setForegroundColor('yellow').build();
+      const message = SpreadsheetApp.newRichTextValue().setText("No results found.\nPlease try again.").setTextStyle(0, 16, textStyle).build();
+      searchResultsDisplayRange.setRichTextValue(message);
+    }
+    else
+    {
+      sheet.getRange('A4').activate(); // Move the user to the top of the search items
+      itemSearchFullRange.clearContent().setBackground('white'); // Clear content and reset the text format
+      sheet.getRange(4, 1, numItems, 8).setNumberFormats(numFormats).setBackgrounds(backgrounds).setValues(output);
+      const numHighlightedRows = highlightedRows.length;
+
+      if (numItems !== 1)
+      {
+        if (numHighlightedRows > 1)
+          searchResultsDisplayRange.setValue(numHighlightedRows + ' results found.\n\n' + numItems + ' total rows.')
+        else if (numHighlightedRows === 1)
+          searchResultsDisplayRange.setValue('1 result found.\n\n' + numItems + ' total rows.')
+        else
+          searchResultsDisplayRange.setValue(numItems +  ' results found.')
+      }
+      else
+        searchResultsDisplayRange.setValue('1 result found.')
+    }
+
+    spreadsheet.toast('Searching Complete.')
+  }
+  else
+  {
+    itemSearchFullRange.clearContent(); // Clear content 
+    const textStyle = SpreadsheetApp.newTextStyle().setBold(true).setForegroundColor('yellow').build();
+    const message = SpreadsheetApp.newRichTextValue().setText("Invalid search.\nPlease try again.").setTextStyle(0, 14, textStyle).build();
+    searchResultsDisplayRange.setRichTextValue(message);
+  }
+
+  functionRunTimeRange.setValue((new Date().getTime() - startTime)/1000 + " seconds");
+}
+
+/**
  * This function searches for either the amount or quantity of product sold to a particular set of customers, 
  * based on which option the user has selected from the checkboxes on the search sheet.
  * 
@@ -853,6 +1504,14 @@ function selectDataSheet(spreadsheet, checkboxes)
 }
 
 /**
+ * This function sorts the invoice data of a particular year via the date first, then sub-sorts lines with the same date via their invoice number.
+ */
+function sortByDateThenInvoiceNumber(a, b)
+{
+  return (a[2] > b[2]) ? 1 : (a[2] < b[2]) ? -1 : (a[3] > b[3]) ? 1 : (a[3] < b[3]) ? -1 : 0;
+}
+
+/**
  * This function take a number and rounds it to two decimals to make it suitable as a price.
  * 
  * @param {Number} num : The given number 
@@ -893,7 +1552,7 @@ function updateYearlyCustomerItemData(values, fileName, spreadsheet)
         const numCols = 4;
         const sheets = spreadsheet.getSheets();
         const previousSheet = sheets.find(sheet => sheet.getSheetName() == year + '_Cust')
-        var indexAdjustment = 2009
+        var indexAdjustment = 1999
 
         if (previousSheet)
         {
