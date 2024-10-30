@@ -572,113 +572,647 @@ function searchForCustomerQuantity(e, spreadsheet, sheet)
 
     if ((col == colEnd || colEnd == null) && row == 1 && col == 1) // The search box is being editted
     {
-      spreadsheet.toast('Searching...', '', -1)
-  
       const numCols_SearchSheet = sheet.getLastColumn()
       var output = [];
-      const searchesOrNot = sheet.getRange(1, 1, 2).clearFormat()                                       // Clear the formatting of the range of the search box
+      const searchforItems_FilterByCustomer = sheet.getRange(1, 1, 2).clearFormat()                     // Clear the formatting of the range of the search box
         .setBorder(true, true, true, true, null, null, 'black', SpreadsheetApp.BorderStyle.SOLID_THICK) // Set the border
         .setFontFamily("Arial").setFontColor("black").setFontWeight("bold").setFontSize(14)             // Set the various font parameters
         .setHorizontalAlignment("center").setVerticalAlignment("middle")                                // Set the alignment
         .setWrapStrategy(SpreadsheetApp.WrapStrategy.WRAP)                                              // Set the wrap strategy
         .merge().trimWhitespace()                                                                       // Merge and trim the whitespaces at the end of the string
-        .getValue().toString().toUpperCase().split(' NOT ')                                             // Split the search string at the word 'not'
+        .getValue().toString().toUpperCase().split(' BY ')                                             // Split the search string at the word 'not'
 
+      const searchforItems_FilterByDate = searchforItems_FilterByCustomer[0].split(' IN ')
+      const searchesOrNot = searchforItems_FilterByDate[0].split(' NOT ')
       const searches = searchesOrNot[0].split(' OR ').map(words => words.split(/\s+/)) // Split the search values up by the word 'or' and split the results of that split by whitespace
 
       if (isNotBlank(searches[0][0])) // If the value in the search box is NOT blank, then compute the search
       {
-        if (searchesOrNot.length === 1) // The word 'not' WASN'T found in the string
+        spreadsheet.toast('Searching...', '', -1)
+
+        if (searchforItems_FilterByCustomer.length === 1) // The word 'by' WASN'T found in the string
         {
-          const dataSheet = spreadsheet.getSheetByName('Customer Quantity Data');
-
-          if (searches[0][0] !== 'YEAR') // Check for the year search indicator
+          if (searchforItems_FilterByDate.length === 1) // The word 'in' wasn't found in the string
           {
-            const data = dataSheet.getSheetValues(2, 1, dataSheet.getLastRow() - 1, dataSheet.getLastColumn());
-            const numSearches = searches.length; // The number searches
-            var numSearchWords;
-
-            for (var i = 0; i < data.length; i++) // Loop through all of the descriptions from the search data
+            if (searchesOrNot.length === 1) // The word 'not' WASN'T found in the string
             {
-              loop: for (var j = 0; j < numSearches; j++) // Loop through the number of searches
+              const dataSheet = spreadsheet.getSheetByName('Customer Quantity Data');
+
+              if (searches[0][0] !== 'YEAR') // Check for the year search indicator
               {
-                numSearchWords = searches[j].length - 1;
+                const data = dataSheet.getSheetValues(2, 1, dataSheet.getLastRow() - 1, dataSheet.getLastColumn());
+                const numSearches = searches.length; // The number searches
+                var numSearchWords;
 
-                for (var k = 0; k <= numSearchWords; k++) // Loop through each word in each set of searches
+                for (var i = 0; i < data.length; i++) // Loop through all of the descriptions from the search data
                 {
-                  if (data[i][0].toString().toUpperCase().includes(searches[j][k])) // Does the i-th item description contain the k-th search word in the j-th search
+                  loop: for (var j = 0; j < numSearches; j++) // Loop through the number of searches
                   {
-                    if (k === numSearchWords) // The last search word was succesfully found in the ith item, and thus, this item is returned in the search
+                    numSearchWords = searches[j].length - 1;
+
+                    for (var k = 0; k <= numSearchWords; k++) // Loop through each word in each set of searches
                     {
-                      output.push(data[i]);
-                      break loop;
-                    }
-                  }
-                  else
-                    break; // One of the words in the User's query was NOT contained in the ith item description, therefore move on to the next item
-                }
-              }
-            }
-          }
-          else // The year search indicator seems to be found, now check the year
-          {
-            const currentYear = new Date().getFullYear();
-            var y; // The index of the year that the customer is intending to search for
-          
-            switch (searches[0][1]) // Based on the search indicator, set the column of data to search in
-            {
-              case currentYear.toString():
-                y = 1;
-                break;
-              case (currentYear - 1).toString():
-                y = 2;
-                break;
-              case (currentYear - 2).toString():
-                y = 3;
-                break;
-            }
-
-            output = dataSheet.getSheetValues(2, 1, dataSheet.getLastRow() - 1, dataSheet.getLastColumn()).filter(year => isNotBlank(year[y]));
-          }
-        }
-        else // The word 'not' was found in the search string
-        {
-          var dontIncludeTheseWords = searchesOrNot[1].split(/\s+/);
-
-          const dataSheet = spreadsheet.getSheetByName('Customer Quantity Data');
-          const data = dataSheet.getSheetValues(2, 1, dataSheet.getLastRow() - 1, dataSheet.getLastColumn());
-          const numSearches = searches.length; // The number searches
-          var numSearchWords;
-
-          for (var i = 0; i < data.length; i++) // Loop through all of the descriptions from the search data
-          {
-            loop: for (var j = 0; j < numSearches; j++) // Loop through the number of searches
-            {
-              numSearchWords = searches[j].length - 1;
-
-              for (var k = 0; k <= numSearchWords; k++) // Loop through each word in each set of searches
-              {
-                if (data[i][0].toString().toUpperCase().includes(searches[j][k])) // Does the i-th item description contain the k-th search word in the j-th search
-                {
-                  if (k === numSearchWords) // The last search word was succesfully found in the ith item, and thus, this item is returned in the search
-                  {
-                    for (var l = 0; l < dontIncludeTheseWords.length; l++)
-                    {
-                      if (!data[i][0].toString().toUpperCase().includes(dontIncludeTheseWords[l]))
+                      if (data[i][0].toString().toUpperCase().includes(searches[j][k])) // Does the i-th item description contain the k-th search word in the j-th search
                       {
-                        if (l === dontIncludeTheseWords.length - 1)
+                        if (k === numSearchWords) // The last search word was succesfully found in the ith item, and thus, this item is returned in the search
                         {
                           output.push(data[i]);
                           break loop;
                         }
                       }
                       else
-                        break;
+                        break; // One of the words in the User's query was NOT contained in the ith item description, therefore move on to the next item
                     }
                   }
                 }
-                else
-                  break; // One of the words in the User's query was NOT contained in the ith item description, therefore move on to the next item 
+              }
+              else // The year search indicator seems to be found, now check the year
+                output = dataSheet.getSheetValues(2, 1, dataSheet.getLastRow() - 1, dataSheet.getLastColumn()).filter(year => isNotBlank(year[new Date().getFullYear() - Number(searches[0][1]) + 1]));
+            }
+            else // The word 'not' was found in the search string
+            {
+              var dontIncludeTheseWords = searchesOrNot[1].split(/\s+/);
+
+              const dataSheet = spreadsheet.getSheetByName('Customer Quantity Data');
+              const data = dataSheet.getSheetValues(2, 1, dataSheet.getLastRow() - 1, dataSheet.getLastColumn());
+              const numSearches = searches.length; // The number searches
+              var numSearchWords;
+
+              for (var i = 0; i < data.length; i++) // Loop through all of the descriptions from the search data
+              {
+                loop: for (var j = 0; j < numSearches; j++) // Loop through the number of searches
+                {
+                  numSearchWords = searches[j].length - 1;
+
+                  for (var k = 0; k <= numSearchWords; k++) // Loop through each word in each set of searches
+                  {
+                    if (data[i][0].toString().toUpperCase().includes(searches[j][k])) // Does the i-th item description contain the k-th search word in the j-th search
+                    {
+                      if (k === numSearchWords) // The last search word was succesfully found in the ith item, and thus, this item is returned in the search
+                      {
+                        for (var l = 0; l < dontIncludeTheseWords.length; l++)
+                        {
+                          if (!data[i][0].toString().toUpperCase().includes(dontIncludeTheseWords[l]))
+                          {
+                            if (l === dontIncludeTheseWords.length - 1)
+                            {
+                              output.push(data[i]);
+                              break loop;
+                            }
+                          }
+                          else
+                            break;
+                        }
+                      }
+                    }
+                    else
+                      break; // One of the words in the User's query was NOT contained in the ith item description, therefore move on to the next item 
+                  }
+                }
+              }
+            }
+          }
+          else // The word 'in' was found in the string
+          {
+            const dateSearch = searchforItems_FilterByDate[1].toString().split(" ");
+            const currentYear = new Date().getFullYear();
+
+            if (searchesOrNot.length === 1) // The word 'not' WASN'T found in the string
+            {
+              const numSearches = searches.length; // The number searches
+              const dataSheet = spreadsheet.getSheetByName('Customer Quantity Data')
+              var data = dataSheet.getSheetValues(2, 1, dataSheet.getLastRow() - 1, 4);
+              var numSearchWords;
+
+              if (dateSearch[0].toString().length === 4) // Check that the year is 4 digits
+              {
+                const yearCol = currentYear - Number(dateSearch[0]) + 1;
+
+                for (var i = 0; i < data.length; i++) // Loop through all of the descriptions from the search data
+                {
+                  loop: for (var j = 0; j < numSearches; j++) // Loop through the number of searches
+                  {
+                    numSearchWords = searches[j].length - 1;
+
+                    for (var k = 0; k <= numSearchWords; k++) // Loop through each word in each set of searches
+                    {
+                      if (data[i][0].toString().toUpperCase().includes(searches[j][k])) // Does column 1 of the i-th row of data contain the k-th search word in the j-th search
+                      {
+                        if (k === numSearchWords) // The last search word was succesfully found in the ith item, and thus, this item is returned in the search
+                        {
+                          if (isNotBlank(data[i][yearCol])) // Does the corresponding year column contain any information
+                          {
+                            output.push(data[i]);
+                            break loop;
+                          }
+                          else
+                            break; // One of the words in the User's query was NOT contained in the ith item description, therefore move on to the next item
+                        }
+                      }
+                      else
+                        break; // One of the words in the User's query was NOT contained in the ith item description, therefore move on to the next item
+                    }
+                  }
+                }
+              }
+            }
+            else // The word 'not' was found in the search string
+            {
+              const dontIncludeTheseWords = searchesOrNot[1].split(/\s+/);
+              const numWordsToNotInclude = dontIncludeTheseWords.length - 1;
+              const numSearches = searches.length; // The number searches
+              const dataSheet = spreadsheet.getSheetByName('Customer Quantity Data')
+              var data = dataSheet.getSheetValues(2, 1, dataSheet.getLastRow() - 1, 4);
+              var numSearchWords;
+
+              if (dateSearch[0].toString().length === 4) // Check that the year is 4 digits
+              {
+                const yearCol = currentYear - Number(dateSearch[0]) + 1;
+
+                for (var i = 0; i < data.length; i++) // Loop through all of the descriptions from the search data
+                {
+                  loop: for (var j = 0; j < numSearches; j++) // Loop through the number of searches
+                  {
+                    numSearchWords = searches[j].length - 1;
+
+                    for (var k = 0; k <= numSearchWords; k++) // Loop through each word in each set of searches
+                    {
+                      if (data[i][0].toString().toUpperCase().includes(searches[j][k])) // Does column 1 of the i-th row of data contain the k-th search word in the j-th search
+                      {
+                        if (k === numSearchWords) // The last search word was succesfully found in the ith item, and thus, this item is returned in the search
+                        {
+                          for (var l = 0; l <= numWordsToNotInclude; l++) // Loop through the number of words to not include
+                          {
+                            if (!data[i][0].toString().toUpperCase().includes(dontIncludeTheseWords[l])) // The i-th description DOES NOT contain the l-th word (of the words that shouldn't be included)
+                            {
+                              if (l === numWordsToNotInclude) // The i-th description does not include any the words that it is not suppose to
+                              {
+                                if (isNotBlank(data[i][yearCol])) // Does the corresponding year column contain any information
+                                {
+                                  output.push(data[i]);
+                                  break loop;
+                                }
+                                else
+                                  break; // One of the words in the User's query was NOT contained in the ith item description, therefore move on to the next item
+                              }
+                            }
+                            else
+                              break;
+                          }
+                        }
+                      }
+                      else
+                        break; // One of the words in the User's query was NOT contained in the ith item description, therefore move on to the next item
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+        else // The word 'by' was found in the string
+        {
+          const customersSearches = searchforItems_FilterByCustomer[1].split(' OR ').map(words => words.split(/\s+/)); // Multiple customers can be searched for
+
+          if (searchforItems_FilterByDate.length === 1) // The word 'in' wasn't found in the string
+          {
+            if (customersSearches.length === 1) // Search for one customer
+            {
+              if (searchesOrNot.length === 1) // The word 'not' WASN'T found in the string
+              {
+                const numSearches = searches.length; // The number searches
+                const numCustomerSearchWords = customersSearches[0].length - 1;
+                const dataSheet = spreadsheet.getSheetByName('Customer Quantity Data')
+                var data = dataSheet.getSheetValues(2, 1, dataSheet.getLastRow() - 1, 4);
+                var numSearchWords;
+
+                for (var i = 0; i < data.length; i++) // Loop through all of the customers and descriptions from the search data
+                {
+                  loop: for (var j = 0; j < numSearches; j++) // Loop through the number of searches
+                  {
+                    numSearchWords = searches[j].length - 1;
+
+                    for (var k = 0; k <= numSearchWords; k++) // Loop through each word in each set of searches
+                    {
+                      if (data[i][0].toString().toUpperCase().includes(searches[j][k])) // Does the i-th item description contain the k-th search word in the j-th search
+                      {
+                        if (k === numSearchWords) // The last search word was succesfully found in the ith item, and thus, this item is returned in the search
+                        {
+                          for (var l = 0; l <= numCustomerSearchWords; l++) // Loop through each word in the customer search
+                          {
+                            if (data[i][1].toString().toUpperCase().includes(customersSearches[0][l])) // Does the i-th customer name contain the l-th search word
+                            {
+                              if (l === numCustomerSearchWords) // All of the customer search words were located in the customer's name
+                              {
+                                output.push(data[i]);
+                                break loop;
+                              }
+                            }
+                            else
+                              break; // One of the words in the User's query was NOT contained in the ith item description, therefore move on to the next item
+                          }
+                        }
+                      }
+                      else
+                        break; // One of the words in the User's query was NOT contained in the ith item description, therefore move on to the next item
+                    }
+                  }
+                }
+              }
+              else // The word 'not' was found in the search string
+              {
+                const dontIncludeTheseWords = searchesOrNot[1].split(/\s+/);
+                const numWordsToNotInclude = dontIncludeTheseWords.length - 1;
+                const numSearches = searches.length; // The number searches
+                const numCustomerSearchWords = customersSearches[0].length - 1;
+                const dataSheet = spreadsheet.getSheetByName('Customer Quantity Data')
+                var data = dataSheet.getSheetValues(2, 1, dataSheet.getLastRow() - 1, 4);
+                var numSearchWords;
+
+                for (var i = 0; i < data.length; i++) // Loop through all of the customers and descriptions from the search data
+                {
+                  loop: for (var j = 0; j < numSearches; j++) // Loop through the number of searches
+                  {
+                    numSearchWords = searches[j].length - 1;
+
+                    for (var k = 0; k <= numSearchWords; k++) // Loop through each word in each set of searches
+                    {
+                      if (data[i][0].toString().toUpperCase().includes(searches[j][k])) // Does the i-th item description contain the k-th search word in the j-th search
+                      {
+                        if (k === numSearchWords) // The last search word was succesfully found in the ith item, and thus, this item is returned in the search
+                        {
+                          for (var l = 0; l <= numWordsToNotInclude; l++) // Loop through the number of words to not include
+                          {
+                            if (!data[i][0].toString().toUpperCase().includes(dontIncludeTheseWords[l])) // The i-th description DOES NOT contain the l-th word (of the words that shouldn't be included)
+                            {
+                              if (l === numWordsToNotInclude) // The i-th description does not include any the words that it is not suppose to
+                              {
+                                for (var l = 0; l <= numCustomerSearchWords; l++) // Loop through the number of customer search words
+                                {
+                                  if (data[i][1].toString().toUpperCase().includes(customersSearches[0][l])) // The i-th customer name contains the l-th word of the customer search
+                                  {
+                                    if (l === numCustomerSearchWords) // All of the customer search words were located in the customer's name
+                                    {
+                                      output.push(data[i]);
+                                      break loop;
+                                    }
+                                  }
+                                  else
+                                    break; // One of the words in the User's query was NOT contained in the ith item description, therefore move on to the next item
+                                }
+                              }
+                            }
+                            else
+                              break;
+                          }
+                        }
+                      }
+                      else
+                        break; // One of the words in the User's query was NOT contained in the ith item description, therefore move on to the next item 
+                    }
+                  }
+                }
+              }
+            }
+            else // Searching for multiple customers
+            {
+              if (searchesOrNot.length === 1) // The word 'not' WASN'T found in the string
+              {
+                const numSearches = searches.length; // The number searches
+                const numCustomerSearches = customersSearches.length; // The number of customer searches
+                const dataSheet = spreadsheet.getSheetByName('Customer Quantity Data')
+                var data = dataSheet.getSheetValues(2, 1, dataSheet.getLastRow() - 1, 4);
+                var numSearchWords, numCustomerSearchWords;
+
+                for (var i = 0; i < data.length; i++) // Loop through all of the customers and descriptions from the search data
+                {
+                  loop: for (var j = 0; j < numSearches; j++) // Loop through the number of searches
+                  {
+                    numSearchWords = searches[j].length - 1;
+
+                    for (var k = 0; k <= numSearchWords; k++) // Loop through each word in each set of searches
+                    {
+                      if (data[i][0].toString().toUpperCase().includes(searches[j][k])) // Does the i-th item description contain the k-th search word in the j-th search
+                      {
+                        if (k === numSearchWords) // The last search word was succesfully found in the ith item, and thus, this item is returned in the search
+                        {
+                          for (var l = 0; l < numCustomerSearches; l++) // Loop through the number of customer searches
+                          {
+                            numCustomerSearchWords = customersSearches[l].length - 1;
+
+                            for (var m = 0; m <= numCustomerSearchWords; m++) // Loop through the number of customer search words
+                            {
+                              if (data[i][1].toString().toUpperCase().includes(customersSearches[l][m])) // Does the i-th customer name contain the m-th search word in the l-th search
+                              {
+                                if (m === numCustomerSearchWords) // The last customer search word was successfully found in the customer name
+                                {
+                                  output.push(data[i]);
+                                  break loop;
+                                }
+                              }
+                              else
+                                break;
+                            }
+                          }
+                        }
+                      }
+                      else
+                        break; // One of the words in the User's query was NOT contained in the ith item description, therefore move on to the next item
+                    }
+                  }
+                }
+              }
+              else // The word 'not' was found in the search string
+              {
+                const dontIncludeTheseWords = searchesOrNot[1].split(/\s+/);
+                const numWordsToNotInclude = dontIncludeTheseWords.length - 1;
+                const numSearches = searches.length; // The number searches
+                const numCustomerSearches = customersSearches.length; // The number of customer searches
+                const dataSheet = spreadsheet.getSheetByName('Customer Quantity Data')
+                var data = dataSheet.getSheetValues(2, 1, dataSheet.getLastRow() - 1, 4);
+                var numSearchWords, numCustomerSearchWords;
+
+                for (var i = 0; i < data.length; i++) // Loop through all of the customers and descriptions from the search data
+                {
+                  loop: for (var j = 0; j < numSearches; j++) // Loop through the number of searches
+                  {
+                    numSearchWords = searches[j].length - 1;
+
+                    for (var k = 0; k <= numSearchWords; k++) // Loop through each word in each set of searches
+                    {
+                      if (data[i][0].toString().toUpperCase().includes(searches[j][k])) // Does the i-th item description contain the k-th search word in the j-th search
+                      {
+                        if (k === numSearchWords) // The last search word was succesfully found in the ith item, and thus, this item is returned in the search
+                        {
+                          for (var l = 0; l <= numWordsToNotInclude; l++) // Loop through the number of words to not include
+                          {
+                            if (!data[i][0].toString().toUpperCase().includes(dontIncludeTheseWords[l])) // The i-th description DOES NOT contain the l-th word (of the words that shouldn't be included)
+                            {
+                              if (l === numWordsToNotInclude) // The i-th description does not include any the words that it is not suppose to
+                              {
+                                for (var m = 0; m < numCustomerSearches; m++) // Loop through the number of customer searchs
+                                {
+                                  numCustomerSearchWords = customersSearches[m].length - 1;
+
+                                  for (var n = 0; n <= numCustomerSearchWords; n++) // Loop through the number of customer search words
+                                  {
+                                    if (data[i][1].toString().toUpperCase().includes(customersSearches[m][n])) // Does the i-th customer name contain the n-th search word in the m-th search
+                                    {
+                                      if (n === numCustomerSearchWords) // The last customer search word was successfully found in the customer name
+                                      {
+                                        output.push(data[i]);
+                                        break loop;
+                                      }
+                                    }
+                                    else
+                                      break;
+                                  }
+                                }
+                              }
+                            }
+                            else
+                              break;
+                          }
+                        }
+                      }
+                      else
+                        break; // One of the words in the User's query was NOT contained in the ith item description, therefore move on to the next item 
+                    }
+                  }
+                }
+              }
+            }
+          }
+          else // The word 'in' was found in the string
+          {
+            const dateSearch = searchforItems_FilterByDate[1].toString().split(" ");
+            const currentYear = new Date().getFullYear()
+
+            if (customersSearches.length === 1) // Search for one customer
+            {
+              if (searchesOrNot.length === 1) // The word 'not' WASN'T found in the string
+              {
+                const numSearches = searches.length; // The number searches
+                const numCustomerSearchWords = customersSearches[0].length - 1;
+                const dataSheet = spreadsheet.getSheetByName('Customer Quantity Data')
+                var data = dataSheet.getSheetValues(2, 1, dataSheet.getLastRow() - 1, 4);
+                var numSearchWords;
+
+                if (dateSearch[0].toString().length === 4) // Check that the year is 4 digits
+                {
+                  const yearCol = currentYear - Number(dateSearch[0]) + 1;
+
+                  for (var i = 0; i < data.length; i++) // Loop through all of the customers and descriptions from the search data
+                  {
+                    loop: for (var j = 0; j < numSearches; j++) // Loop through the number of searches
+                    {
+                      numSearchWords = searches[j].length - 1;
+
+                      for (var k = 0; k <= numSearchWords; k++) // Loop through each word in each set of searches
+                      {
+                        if (data[i][0].toString().toUpperCase().includes(searches[j][k])) // Does the i-th item description contain the k-th search word in the j-th search
+                        {
+                          if (k === numSearchWords) // The last search word was succesfully found in the ith item, and thus, this item is returned in the search
+                          {
+                            for (var l = 0; l <= numCustomerSearchWords; l++) // Loop through each word in the customer search
+                            {
+                              if (data[i][yearCol].toString().toUpperCase().includes(customersSearches[0][l])) // Does the i-th row in the yearCol contain the l-th search word for customer name
+                              {
+                                if (l === numCustomerSearchWords) // All of the customer search words were located in the customer's name
+                                {
+                                  output.push(data[i]);
+                                  break loop;
+                                }
+                              }
+                              else
+                                break; // One of the words in the User's query was NOT contained in the ith item description, therefore move on to the next item
+                            }
+                          }
+                        }
+                        else
+                          break; // One of the words in the User's query was NOT contained in the ith item description, therefore move on to the next item
+                      }
+                    }
+                  }
+                }
+              }
+              else // The word 'not' was found in the search string
+              {
+                const dontIncludeTheseWords = searchesOrNot[1].split(/\s+/);
+                const numWordsToNotInclude = dontIncludeTheseWords.length - 1;
+                const numSearches = searches.length; // The number searches
+                const numCustomerSearchWords = customersSearches[0].length - 1;
+                const dataSheet = spreadsheet.getSheetByName('Customer Quantity Data')
+                var data = dataSheet.getSheetValues(2, 1, dataSheet.getLastRow() - 1, 4);
+                var numSearchWords;
+
+                if (dateSearch[0].toString().length === 4) // Check that the year is 4 digits
+                {
+                  const yearCol = currentYear - Number(dateSearch[0]) + 1;
+
+                  for (var i = 0; i < data.length; i++) // Loop through all of the customers and descriptions from the search data
+                  {
+                    loop: for (var j = 0; j < numSearches; j++) // Loop through the number of searches
+                    {
+                      numSearchWords = searches[j].length - 1;
+
+                      for (var k = 0; k <= numSearchWords; k++) // Loop through each word in each set of searches
+                      {
+                        if (data[i][0].toString().toUpperCase().includes(searches[j][k])) // Does the i-th item description contain the k-th search word in the j-th search
+                        {
+                          if (k === numSearchWords) // The last search word was succesfully found in the ith item, and thus, this item is returned in the search
+                          {
+                            for (var l = 0; l <= numWordsToNotInclude; l++) // Loop through the number of words to not include
+                            {
+                              if (!data[i][0].toString().toUpperCase().includes(dontIncludeTheseWords[l])) // The i-th description DOES NOT contain the l-th word (of the words that shouldn't be included)
+                              {
+                                if (l === numWordsToNotInclude) // The i-th description does not include any the words that it is not suppose to
+                                {
+                                  for (var l = 0; l <= numCustomerSearchWords; l++) // Loop through each word in the customer search
+                                  {
+                                    if (data[i][yearCol].toString().toUpperCase().includes(customersSearches[0][l])) // Does the i-th row in the yearCol contain the l-th search word for customer name
+                                    {
+                                      if (l === numCustomerSearchWords) // All of the customer search words were located in the customer's name
+                                      {
+                                        output.push(data[i]);
+                                        break loop;
+                                      }
+                                    }
+                                    else
+                                      break; // One of the words in the User's query was NOT contained in the ith item description, therefore move on to the next item
+                                  }
+                                }
+                              }
+                              else
+                                break;
+                            }
+                          }
+                        }
+                        else
+                          break; // One of the words in the User's query was NOT contained in the ith item description, therefore move on to the next item 
+                      }
+                    }
+                  }
+                }
+              }
+            }
+            else // Searching for multiple customers
+            {
+              if (searchesOrNot.length === 1) // The word 'not' WASN'T found in the string
+              {
+                const numSearches = searches.length; // The number searches
+                const numCustomerSearches = customersSearches.length; // The number of customer searches
+                const dataSheet = spreadsheet.getSheetByName('Customer Quantity Data')
+                var data = dataSheet.getSheetValues(2, 1, dataSheet.getLastRow() - 1, 4);
+                var numSearchWords, numCustomerSearchWords;
+
+                if (dateSearch[0].toString().length === 4) // Check that the year is 4 digits
+                {
+                  const yearCol = currentYear - Number(dateSearch[0]) + 1;
+
+                  for (var i = 0; i < data.length; i++) // Loop through all of the customers and descriptions from the search data
+                  {
+                    loop: for (var j = 0; j < numSearches; j++) // Loop through the number of searches
+                    {
+                      numSearchWords = searches[j].length - 1;
+
+                      for (var k = 0; k <= numSearchWords; k++) // Loop through each word in each set of searches
+                      {
+                        if (data[i][0].toString().toUpperCase().includes(searches[j][k])) // Does the i-th item description contain the k-th search word in the j-th search
+                        {
+                          if (k === numSearchWords) // The last search word was succesfully found in the ith item, and thus, this item is returned in the search
+                          {
+                            for (var l = 0; l < numCustomerSearches; l++) // Loop through the number of customer searches
+                            {
+                              numCustomerSearchWords = customersSearches[l].length - 1;
+
+                              for (var m = 0; m <= numCustomerSearchWords; m++) // Loop through the number of customer search words
+                              {
+                                if (data[i][yearCol].toString().toUpperCase().includes(customersSearches[l][m])) // Does the i-th row in the yearCol contain the l-th search word for customer name
+                                {
+                                  if (m === numCustomerSearchWords) // The last customer search word was successfully found in the customer name
+                                  {
+                                    output.push(data[i]);
+                                    break loop;
+                                  }
+                                }
+                                else
+                                  break;
+                              }
+                            }
+                          }
+                        }
+                        else
+                          break; // One of the words in the User's query was NOT contained in the ith item description, therefore move on to the next item
+                      }
+                    }
+                  }
+                }
+              }
+              else // The word 'not' was found in the search string
+              {
+                const dontIncludeTheseWords = searchesOrNot[1].split(/\s+/);
+                const numWordsToNotInclude = dontIncludeTheseWords.length - 1;
+                const numSearches = searches.length; // The number searches
+                const numCustomerSearches = customersSearches.length; // The number of customer searches
+                const dataSheet = spreadsheet.getSheetByName('Customer Quantity Data')
+                var data = dataSheet.getSheetValues(2, 1, dataSheet.getLastRow() - 1, 4);
+                var numSearchWords, numCustomerSearchWords;
+
+                if (dateSearch[0].toString().length === 4) // Check that the year is 4 digits
+                {
+                  const yearCol = currentYear - Number(dateSearch[0]) + 1;
+
+                  for (var i = 0; i < data.length; i++) // Loop through all of the customers and descriptions from the search data
+                  {
+                    loop: for (var j = 0; j < numSearches; j++) // Loop through the number of searches
+                    {
+                      numSearchWords = searches[j].length - 1;
+
+                      for (var k = 0; k <= numSearchWords; k++) // Loop through each word in each set of searches
+                      {
+                        if (data[i][0].toString().toUpperCase().includes(searches[j][k])) // Does the i-th item description contain the k-th search word in the j-th search
+                        {
+                          if (k === numSearchWords) // The last search word was succesfully found in the ith item, and thus, this item is returned in the search
+                          {
+                            for (var l = 0; l <= numWordsToNotInclude; l++) // Loop through the number of words to not include
+                            {
+                              if (!data[i][0].toString().toUpperCase().includes(dontIncludeTheseWords[l])) // The i-th description DOES NOT contain the l-th word (of the words that shouldn't be included)
+                              {
+                                if (l === numWordsToNotInclude) // The i-th description does not include any the words that it is not suppose to
+                                {
+                                  for (var m = 0; m < numCustomerSearches; m++) // Loop through the number of customer searchs
+                                  {
+                                    numCustomerSearchWords = customersSearches[m].length - 1;
+
+                                    for (var n = 0; n <= numCustomerSearchWords; n++) // Loop through the number of customer search words
+                                    {
+                                      if (data[i][yearCol].toString().toUpperCase().includes(customersSearches[m][n])) // Does the i-th row in the yearCol contain the l-th search word for customer name
+                                      {
+                                        if (n === numCustomerSearchWords) // The last customer search word was successfully found in the customer name
+                                        {
+                                          output.push(data[i]);
+                                          break loop;
+                                        }
+                                      }
+                                      else+6
+                                      6
+                                        break;
+                                    }
+                                  }
+                                }
+                              }
+                              else
+                                break;
+                            }
+                          }
+                        }
+                        else
+                          break; // One of the words in the User's query was NOT contained in the ith item description, therefore move on to the next item 
+                      }
+                    }
+                  }
+                }
               }
             }
           }
@@ -698,11 +1232,9 @@ function searchForCustomerQuantity(e, spreadsheet, sheet)
         {
           sheet.getRange('A5').activate(); // Move the user to the top of the search items
           sheet.getRange(5, 1, sheet.getMaxRows() - 4, numCols_SearchSheet).clearContent().setBackground('white'); // Clear content and reset the text format and background colour
-          sheet.getRange(5, 1, numItems, numCols_SearchSheet).setNumberFormat('@').setHorizontalAlignments(horizontalAlignments).setValues(output);
+          sheet.getRange(5, 1, numItems, numCols_SearchSheet).setNumberFormat('@').setValues(output);
           (numItems !== 1) ? sheet.getRange(1, numCols_SearchSheet).setValue(numItems + " results found.") : sheet.getRange(1, numCols_SearchSheet).setValue("1 result found.");
         }
-
-        spreadsheet.toast('Searching Complete.')
       }
       else
       {
@@ -713,6 +1245,8 @@ function searchForCustomerQuantity(e, spreadsheet, sheet)
         sheet.getRange(1, numCols_SearchSheet).setRichTextValue(message);
       }
 
+      SpreadsheetApp.flush()
+      spreadsheet.toast('Searching Complete.')
       sheet.getRange(2, numCols_SearchSheet).setValue((new Date().getTime() - startTime)/1000 + " seconds");
     }
   }
@@ -814,6 +1348,8 @@ function searchForCustomerQuantity(e, spreadsheet, sheet)
         (numItems !== 1) ? sheet.getRange(1, numCols_SearchSheet).setValue(numItems + " results found.") : sheet.getRange(1, numCols_SearchSheet).setValue(numItems + " result found.");
       }
 
+      SpreadsheetApp.flush()
+      spreadsheet.toast('Searching Complete.')
       sheet.getRange(2, numCols_SearchSheet).setValue((new Date().getTime() - startTime)/1000 + " s");
     }
   }
@@ -838,7 +1374,6 @@ function searchForInvoice(e, spreadsheet, sheet)
 
   if (row == 1 && col == 1 && (rowEnd == row || rowEnd == 2) && (col == colEnd || colEnd == null))
   {
-    spreadsheet.toast('Searching...', '', -1)
     const YELLOW = "#ffe599";
     const invoiceNumberList = [], highlightedRows = []
     const searchforItems_FilterByCustomer = sheet.getRange(1, 1, 2).clearFormat()                     // Clear the formatting of the range of the search box
@@ -1873,8 +2408,6 @@ function searchForInvoice(e, spreadsheet, sheet)
         else
           sheet.getRange(1, 6).setValue('1 result found.')
       }
-
-      spreadsheet.toast('Searching Complete.')
     }
     else
     {
@@ -1884,6 +2417,8 @@ function searchForInvoice(e, spreadsheet, sheet)
       sheet.getRange(1, 6).setRichTextValue(message);
     }
 
+    SpreadsheetApp.flush()
+    spreadsheet.toast('Searching Complete.')
     sheet.getRange(2, 6).setValue((new Date().getTime() - startTime)/1000 + " seconds");
   }
 }
@@ -1927,7 +2462,6 @@ function searchForQuantityOrAmount(e, spreadsheet, sheet)
 
       if (doSearch)
       {
-        spreadsheet.toast('Searching...', '', -1)
         const numCols_SearchSheet = sheet.getLastColumn()
         const checkboxes = sheet.getSheetValues(2, numYears, 2, 1);
         var output = [];
@@ -1943,6 +2477,8 @@ function searchForQuantityOrAmount(e, spreadsheet, sheet)
 
         if (isNotBlank(searches[0][0])) // If the value in the search box is NOT blank, then compute the search
         {
+          spreadsheet.toast('Searching...', '', -1)
+
           if (searchesOrNot.length === 1) // The word 'not' WASN'T found in the string
           {
             if (searches[0][0] === 'TOP' && /^\d+$/.test(searches[0][1]))
@@ -2051,8 +2587,6 @@ function searchForQuantityOrAmount(e, spreadsheet, sheet)
             sheet.getRange(6, 1, numItems, numCols_SearchSheet).setNumberFormats(numFormats).setHorizontalAlignments(horizontalAlignments).setValues(output);
             (numItems !== 1) ? sheet.getRange(1, numCols_SearchSheet - 3).setValue(numItems + " results found.") : sheet.getRange(1, numCols_SearchSheet - 3).setValue("1 result found.");
           }
-
-          spreadsheet.toast('Searching Complete.')
         }
         else
         {
@@ -2062,6 +2596,8 @@ function searchForQuantityOrAmount(e, spreadsheet, sheet)
           sheet.getRange(1, numCols_SearchSheet - 3).setRichTextValue(message);
         }
 
+        SpreadsheetApp.flush()
+        spreadsheet.toast('Searching Complete.')
         sheet.getRange(2, numCols_SearchSheet - 3).setValue((new Date().getTime() - startTime)/1000 + " seconds");
       }
     }
@@ -2173,6 +2709,8 @@ function searchForQuantityOrAmount(e, spreadsheet, sheet)
         (numItems !== 1) ? sheet.getRange(1, numCols_SearchSheet - 3).setValue(numItems + " results found.") : sheet.getRange(1, numCols_SearchSheet - 3).setValue(numItems + " result found.");
       }
 
+      SpreadsheetApp.flush()
+      spreadsheet.toast('Searching Complete.')
       sheet.getRange(2, numCols_SearchSheet - 3).setValue((new Date().getTime() - startTime)/1000 + " s");
     }
   }
