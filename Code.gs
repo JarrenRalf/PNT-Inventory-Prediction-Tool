@@ -1330,10 +1330,11 @@ function searchForCustomerQuantity(e, spreadsheet, sheet)
         const YELLOW = new Array(numCols_SearchSheet).fill('#ffe599');
         const WHITE = new Array(numCols_SearchSheet).fill('white');
         const colours = [].concat.apply([], [new Array(numSkusNotFound).fill(YELLOW), new Array(numSkusFound).fill(WHITE)]); // Concatenate all of the item values as a 2-D array 
+        const horizontalAlignments = new Array(numItems).fill(['right', ...new Array(numCols_SearchSheet - 1).fill('left')]);
 
         sheet.getRange(5, 1, sheet.getMaxRows() - 4, numCols_SearchSheet).clearContent().setBackground('white').setFontColor('black').setBorder(false, false, false, false, false, false)
           .offset(0, 0, numItems, numCols_SearchSheet).setFontFamily('Arial').setFontWeight('bold').setFontSize(10)
-            .setVerticalAlignment('middle').setBackgrounds(colours).setValues(items).setHorizontalAlignment('left').setWrap(true)
+            .setVerticalAlignment('middle').setBackgrounds(colours).setValues(items).setHorizontalAlignments(horizontalAlignments).setWrap(true)
           .offset((numSkusFound != 0) ? numSkusNotFound : 0, 0, (numSkusFound != 0) ? numSkusFound : numSkusNotFound, numCols_SearchSheet).activate();
 
         (numSkusFound !== 1) ? sheet.getRange(1, numCols_SearchSheet).setValue(numSkusFound + " results found.") : sheet.getRange(1, numCols_SearchSheet).setValue(numSkusFound + " result found.");
@@ -1341,9 +1342,10 @@ function searchForCustomerQuantity(e, spreadsheet, sheet)
       else // All SKUs were succefully found
       {
         const numItems = skus.length
+        const horizontalAlignments = new Array(numItems).fill(['right', ...new Array(numCols_SearchSheet - 1).fill('left')]);
         sheet.getRange(5, 1, sheet.getMaxRows() - 4, numCols_SearchSheet).clearContent().setBackground('white').setFontColor('black')
           .offset(0, 0, numItems, numCols_SearchSheet).setFontFamily('Arial').setFontWeight('bold').setFontSize(10)
-            .setVerticalAlignment('middle').setBorder(false, false, false, false, false, false).setValues(skus).setHorizontalAlignment('left').setWrap(true).activate();
+            .setVerticalAlignment('middle').setBorder(false, false, false, false, false, false).setValues(skus).setHorizontalAlignments(horizontalAlignments).setWrap(true).activate();
 
         (numItems !== 1) ? sheet.getRange(1, numCols_SearchSheet).setValue(numItems + " results found.") : sheet.getRange(1, numCols_SearchSheet).setValue(numItems + " result found.");
       }
@@ -2580,7 +2582,7 @@ function searchForQuantityOrAmount(e, spreadsheet, sheet)
           }
           else
           {
-            const horizontalAlignments = new Array(numItems).fill(['left', ...new Array(numCols_SearchSheet - 1).fill('center')]);
+            const horizontalAlignments = new Array(numItems).fill(['right', ...new Array(numCols_SearchSheet - 1).fill('center')]);
             const numFormats = (checkboxes[1][0]) ? new Array(numItems).fill(['@', '@', ...new Array(numCols_SearchSheet - 2).fill('$#,##0.00')]) : new Array(numItems).fill([...new Array(numCols_SearchSheet).fill('@')]);
             sheet.getRange('A6').activate(); // Move the user to the top of the search items
             sheet.getRange(6, 1, sheet.getMaxRows() - 5, numCols_SearchSheet).clearContent().setBackground('white'); // Clear content and reset the text format
@@ -2686,8 +2688,8 @@ function searchForQuantityOrAmount(e, spreadsheet, sheet)
         const YELLOW = new Array(numCols_SearchSheet).fill('#ffe599');
         const WHITE = new Array(numCols_SearchSheet).fill('white');
         const colours = [].concat.apply([], [new Array(numSkusNotFound).fill(YELLOW), new Array(numSkusFound).fill(WHITE)]); // Concatenate all of the item values as a 2-D array
-        const horizontalAlignments = [].concat.apply([], [new Array(numSkusNotFound).fill(['left', 'left', ...new Array(numCols_SearchSheet - 2).fill('center')]), 
-                                                          new Array(numSkusFound).fill(['left', ...new Array(numCols_SearchSheet - 1).fill('center')])]); 
+        const horizontalAlignments = [].concat.apply([], [new Array(numSkusNotFound).fill(['right', 'left', ...new Array(numCols_SearchSheet - 2).fill('center')]), 
+                                                          new Array(numSkusFound).fill(['right', ...new Array(numCols_SearchSheet - 1).fill('center')])]); 
 
         sheet.getRange(6, 1, sheet.getMaxRows() - 5, numCols_SearchSheet).clearContent().setBackground('white').setBorder(false, false, false, false, false, false)
           .offset(0, 0, numItems, numCols_SearchSheet).setFontColors(fontColours).setFontFamily('Arial').setFontWeight('bold').setFontSize(10)
@@ -2700,7 +2702,7 @@ function searchForQuantityOrAmount(e, spreadsheet, sheet)
       {
         const numItems = skus.length
         const fontColours = new Array(numItems).fill(['black', 'black', 'black', 'black', ...new Array(numCols_SearchSheet - 4).fill('#666666')]);
-        const horizontalAlignments = new Array(numItems).fill(['left', ...new Array(numCols_SearchSheet - 1).fill('center')]);
+        const horizontalAlignments = new Array(numItems).fill(['right', ...new Array(numCols_SearchSheet - 1).fill('center')]);
         const strategies = new Array(numItems).fill([SpreadsheetApp.WrapStrategy.WRAP, ...new Array(numCols_SearchSheet - 1).fill(SpreadsheetApp.WrapStrategy.OVERFLOW)]);
         sheet.getRange(6, 1, sheet.getMaxRows() - 5, numCols_SearchSheet).clearContent().setBackground('white')
           .offset(0, 0, numItems, numCols_SearchSheet).setFontColors(fontColours).setFontFamily('Arial').setFontWeight('bold').setFontSize(10).setHorizontalAlignments(horizontalAlignments)
