@@ -2449,7 +2449,7 @@ function searchForQuantityOrAmount(e, spreadsheet, sheet)
     if (col == colEnd || colEnd == null) // Check and make sure only a single column is being edited 
     {
       const numYears = new Date().getFullYear() - 2012 + 1;
-      var doSearch = false;
+      var doSearch = false, wasCheckboxClicked = false;
 
       if (row == 1 && col == 1) // The search box was editted
         doSearch = true;
@@ -2459,6 +2459,7 @@ function searchForQuantityOrAmount(e, spreadsheet, sheet)
         {
           sheet.getRange(5 - row, numYears).uncheck()
           doSearch = true;
+          wasCheckboxClicked = true;
         }
       }
 
@@ -2582,12 +2583,53 @@ function searchForQuantityOrAmount(e, spreadsheet, sheet)
           }
           else
           {
-            const horizontalAlignments = new Array(numItems).fill(['right', ...new Array(numCols_SearchSheet - 1).fill('center')]);
             const numFormats = (checkboxes[1][0]) ? new Array(numItems).fill(['@', '@', ...new Array(numCols_SearchSheet - 2).fill('$#,##0.00')]) : new Array(numItems).fill([...new Array(numCols_SearchSheet).fill('@')]);
+            const horizontalAlignments = (checkboxes[1][0]) ? 
+              new Array(numItems).fill(['right', 'center', ...new Array(numCols_SearchSheet - 2).fill('right')]) : 
+              new Array(numItems).fill(['right', ...new Array(numCols_SearchSheet - 1).fill('center')]);
             sheet.getRange('A6').activate(); // Move the user to the top of the search items
             sheet.getRange(6, 1, sheet.getMaxRows() - 5, numCols_SearchSheet).clearContent().setBackground('white'); // Clear content and reset the text format
             sheet.getRange(6, 1, numItems, numCols_SearchSheet).setNumberFormats(numFormats).setHorizontalAlignments(horizontalAlignments).setValues(output);
             (numItems !== 1) ? sheet.getRange(1, numCols_SearchSheet - 3).setValue(numItems + " results found.") : sheet.getRange(1, numCols_SearchSheet - 3).setValue("1 result found.");
+          }
+        }
+        else if (wasCheckboxClicked)
+        {
+          spreadsheet.toast('Searching...', '', -1)
+          const values = sheet.getSheetValues(6, 1, sheet.getLastRow() - 5, 2).filter(blank => isNotBlank(blank[0]))
+
+          if (values.length !== 0) // Don't run function if every value is blank, probably means the user pressed the delete key on a large selection
+          {
+            const dataSheet = selectDataSheet(spreadsheet, checkboxes);
+            const data = dataSheet.getSheetValues(2, 1, dataSheet.getLastRow() - 1, numCols_SearchSheet);
+            var numSkusNotFound = 0;
+
+            const skus = values.map(item => {
+              if (item[0] !== 'SKU Not Found:')
+              {
+                for (var i = 0; i < data.length; i++)
+                  if (data[i][0].toString().split(' - ').pop().toUpperCase() == item[0].toString().split(' - ').pop().toUpperCase())
+                    return data[i];
+              }
+              else
+              {
+                numSkusNotFound++;
+                return [item[0], item[1], ...new Array(numCols_SearchSheet - 2).fill('')];
+              }
+                
+              return ['SKU Not Found:', item[1].toString().split(' - ').pop().toUpperCase(), ...new Array(numCols_SearchSheet - 2).fill('')]
+            });
+
+            const numItems = skus.length;
+            const numSkusFound = numItems - numSkusNotFound;
+            const numFormats = (checkboxes[1][0]) ? new Array(numItems).fill(['@', '@', ...new Array(numCols_SearchSheet - 2).fill('$#,##0.00')]) : new Array(numItems).fill([...new Array(numCols_SearchSheet).fill('@')]);
+            const horizontalAlignments = (checkboxes[1][0]) ? 
+              [].concat.apply([], [new Array(numSkusNotFound).fill(['right', 'left', ...new Array(numCols_SearchSheet - 2).fill('center')]), 
+                                   new Array(numSkusFound).fill(['right', 'center', ...new Array(numCols_SearchSheet - 2).fill('right')])]) : 
+              [].concat.apply([], [new Array(numSkusNotFound).fill(['right', 'left', ...new Array(numCols_SearchSheet - 2).fill('center')]), 
+                                   new Array(numSkusFound).fill(['right', ...new Array(numCols_SearchSheet - 1).fill('center')])]);
+            sheet.getRange(6, 1, skus.length, numCols_SearchSheet).setNumberFormats(numFormats).setHorizontalAlignments(horizontalAlignments).setValues(skus).activate()
+              .offset((numSkusNotFound != 0) ? numSkusNotFound : 0, 0, (numSkusNotFound != 0) ? numSkusFound : numItems, numCols_SearchSheet).activate();
           }
         }
         else
@@ -2687,26 +2729,33 @@ function searchForQuantityOrAmount(e, spreadsheet, sheet)
         const strategies = new Array(numItems).fill([SpreadsheetApp.WrapStrategy.WRAP, ...new Array(numCols_SearchSheet - 1).fill(SpreadsheetApp.WrapStrategy.OVERFLOW)]);
         const YELLOW = new Array(numCols_SearchSheet).fill('#ffe599');
         const WHITE = new Array(numCols_SearchSheet).fill('white');
+        const numFormats = (checkboxes[1][0]) ? new Array(numItems).fill(['@', '@', ...new Array(numCols_SearchSheet - 2).fill('$#,##0.00')]) : new Array(numItems).fill([...new Array(numCols_SearchSheet).fill('@')]);
         const colours = [].concat.apply([], [new Array(numSkusNotFound).fill(YELLOW), new Array(numSkusFound).fill(WHITE)]); // Concatenate all of the item values as a 2-D array
-        const horizontalAlignments = [].concat.apply([], [new Array(numSkusNotFound).fill(['right', 'left', ...new Array(numCols_SearchSheet - 2).fill('center')]), 
-                                                          new Array(numSkusFound).fill(['right', ...new Array(numCols_SearchSheet - 1).fill('center')])]); 
+        const horizontalAlignments = (checkboxes[1][0]) ? 
+              [].concat.apply([], [new Array(numSkusNotFound).fill(['right', 'left', ...new Array(numCols_SearchSheet - 2).fill('center')]), 
+                                   new Array(numSkusFound).fill(['right', 'center', ...new Array(numCols_SearchSheet - 2).fill('right')])]) : 
+              [].concat.apply([], [new Array(numSkusNotFound).fill(['right', 'left', ...new Array(numCols_SearchSheet - 2).fill('center')]), 
+                                   new Array(numSkusFound).fill(['right', ...new Array(numCols_SearchSheet - 1).fill('center')])]);
 
         sheet.getRange(6, 1, sheet.getMaxRows() - 5, numCols_SearchSheet).clearContent().setBackground('white').setBorder(false, false, false, false, false, false)
-          .offset(0, 0, numItems, numCols_SearchSheet).setFontColors(fontColours).setFontFamily('Arial').setFontWeight('bold').setFontSize(10)
+          .offset(0, 0, numItems, numCols_SearchSheet).setNumberFormats(numFormats).setFontColors(fontColours).setFontFamily('Arial').setFontWeight('bold').setFontSize(10)
             .setHorizontalAlignments(horizontalAlignments).setVerticalAlignment('middle').setBackgrounds(colours).setValues(items).setWrapStrategies(strategies)
           .offset((numSkusFound != 0) ? numSkusNotFound : 0, 0, (numSkusFound != 0) ? numSkusFound : numSkusNotFound, numCols_SearchSheet).activate();
 
         (numSkusFound !== 1) ? sheet.getRange(1, numCols_SearchSheet - 3).setValue(numSkusFound + " results found.") : sheet.getRange(1, numCols_SearchSheet - 3).setValue(numSkusFound + " result found.");
       }
-      else // All SKUs were succefully found
+      else // All SKUs were successfully found
       {
         const numItems = skus.length
         const fontColours = new Array(numItems).fill(['black', 'black', 'black', 'black', ...new Array(numCols_SearchSheet - 4).fill('#666666')]);
-        const horizontalAlignments = new Array(numItems).fill(['right', ...new Array(numCols_SearchSheet - 1).fill('center')]);
         const strategies = new Array(numItems).fill([SpreadsheetApp.WrapStrategy.WRAP, ...new Array(numCols_SearchSheet - 1).fill(SpreadsheetApp.WrapStrategy.OVERFLOW)]);
+        const numFormats = (checkboxes[1][0]) ? new Array(numItems).fill(['@', '@', ...new Array(numCols_SearchSheet - 2).fill('$#,##0.00')]) : new Array(numItems).fill([...new Array(numCols_SearchSheet).fill('@')]);
+        const horizontalAlignments = (checkboxes[1][0]) ? 
+              new Array(numItems).fill(['right', 'center', ...new Array(numCols_SearchSheet - 2).fill('right')]) : 
+              new Array(numItems).fill(['right', ...new Array(numCols_SearchSheet - 1).fill('center')]);
         sheet.getRange(6, 1, sheet.getMaxRows() - 5, numCols_SearchSheet).clearContent().setBackground('white')
           .offset(0, 0, numItems, numCols_SearchSheet).setFontColors(fontColours).setFontFamily('Arial').setFontWeight('bold').setFontSize(10).setHorizontalAlignments(horizontalAlignments)
-            .setVerticalAlignment('middle').setBorder(false, false, false, false, false, false).setValues(skus).setWrapStrategies(strategies).activate();
+            .setNumberFormats(numFormats).setVerticalAlignment('middle').setBorder(false, false, false, false, false, false).setValues(skus).setWrapStrategies(strategies).activate();
 
         (numItems !== 1) ? sheet.getRange(1, numCols_SearchSheet - 3).setValue(numItems + " results found.") : sheet.getRange(1, numCols_SearchSheet - 3).setValue(numItems + " result found.");
       }
