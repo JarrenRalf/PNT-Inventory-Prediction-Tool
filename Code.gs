@@ -158,8 +158,11 @@ function concatenateAllInvoiceData()
  */
 function concatenateAllItemData(spreadsheet)
 {
+  var spreadsheet = SpreadsheetApp.getActive()
   spreadsheet.toast('This may take several minutes...', 'Beginning Data Collection', -1)
-  const currentYear = new Date().getFullYear();
+  const today = new Date();
+  const currentYear = today.getFullYear();
+  const nextYear = currentYear + 1;
   const numYears = currentYear - 2012 + 1;
   const years = new Array(numYears).fill('').map((_, y) => (currentYear - y).toString()).reverse(); // Years in ascending order
   const COL = numYears + 4; // A column index to ensure the correct year is being updated when mapping through each year
@@ -195,10 +198,69 @@ function concatenateAllItemData(spreadsheet)
   spreadsheet.toast('Calculating averages and predictions...', '', -1)
 
   var N; // The number of terms in the average
-  var n; // The index position used to determine the number of terms in the average
+  var n = 1; // The index position used to determine the number of terms in the average
   var totalInventory;
 
-  quanityData = quanityData.map((item, i) => {
+  quanityData = (today.getMonth() < 8) ? // If the summer is over, make preditions for next yeat, otherwise make predictions for this year
+    quanityData.map((item, i) => {
+      
+      n = 1;
+
+      while (isQtyZero(item[item.length - n]))
+        n++;
+
+      N = numYears - n;
+
+      if (N > 1) // Compute the average and make a prediction if we have more than 1 year of data
+      {
+        [item[3], amountData[i][3]] = getTwoPredictionsUsingLinearRegresssion(
+          years.filter((_, y) => y + 1 >= n && y + 1 <= N), // xData
+          item.filter((_, t) => t > 5 && t - 5 <= N).reverse(),  // yData1
+          amountData[i].filter((_, a) => a > 5 && a - 5 <= N).reverse(), //yData2
+          currentYear // X value to predict
+        )
+
+        if (item[3] < 0) // If the prediction is negative then we don't want to display it
+          item[3] = 0;
+
+        if (amountData[i][3] < 0) // If the prediction is negative then we don't want to display it
+          amountData[i][3] = 0;
+
+        for (var r = 6; r <= 5 + N; r++)
+        {
+          item[4] += item[r]; // Quantity Sum
+          amountData[i][4] += amountData[i][r]; // Amount Sum
+        }
+      }
+      else // No predictions or averages for only 1 year of data
+      {
+        item[3] = 0;
+        item[4] = 0;
+        amountData[i][3] = 0;
+        amountData[i][4] = 0;
+      }
+
+      adagioInfo = csvData.find(sku => item[0].toString().toUpperCase() == sku[itemNum].toString().toUpperCase());
+
+      if (adagioInfo != null)
+      {
+        totalInventory = Number(adagioInfo[2]) + Number(adagioInfo[3]) + Number(adagioInfo[4]) + Number(adagioInfo[5]); // adagioInfo[4] is Trites (400) location; Should we add it in??
+        item[1] = adagioInfo[fullDescription]; // Update the Adagio description
+        item[2] = totalInventory;
+        amountData[i][1] = adagioInfo[fullDescription]; // Update the Adagio description
+        amountData[i][2] = totalInventory; // Current Inventory
+      }
+      
+      item[4] = Math.round(item[4]*10/N)/10; // Average
+
+      item = item.map(qty => (isQtyNotZero(qty)) ? qty : '') // Remove the zeros, '0', and replace them with a blank string (makes the data present cleaner)
+
+      amountData[i][4] = Math.round(amountData[i][4]*100/N)/100; // Average
+      amountData[i] = amountData[i].map(qty => (isQtyNotZero(qty)) ? qty : '') // Remove the zeros
+
+      return item
+    }) :
+  quanityData.map((item, i) => {
     n = 1;
 
     while (isQtyZero(item[item.length - n]))
@@ -212,7 +274,7 @@ function concatenateAllItemData(spreadsheet)
         years.filter((_, y) => y + 1 >= n), // xData
         item.filter((_, t) => t > 4 && t - 5 < N).reverse(),  // yData1
         amountData[i].filter((_, a) => a > 4 && a - 5 < N).reverse(), //yData2
-        2025 // X value to predict
+        nextYear // X value to predict
       )
 
       if (item[3] < 0) // If the prediction is negative then we don't want to display it
