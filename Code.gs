@@ -317,6 +317,64 @@ function concatenateAllItemData(spreadsheet)
     return item
   })
 
+  // This is the orginal code that works
+  // quanityData = quanityData.map((item, i) => {
+  //   n = 1;
+
+  //   while (isQtyZero(item[item.length - n]))
+  //     n++;
+
+  //   N = numYears - n + 1;
+
+  //   if (N > 1) // Compute the average and make a prediction if we have more than 1 year of data
+  //   {
+  //     [item[3], amountData[i][3]] = getTwoPredictionsUsingLinearRegresssion(
+  //       years.filter((_, y) => y + 1 >= n), // xData
+  //       item.filter((_, t) => t > 4 && t - 5 < N).reverse(),  // yData1
+  //       amountData[i].filter((_, a) => a > 4 && a - 5 < N).reverse(), //yData2
+  //       nextYear // X value to predict
+  //     )
+
+  //     if (item[3] < 0) // If the prediction is negative then we don't want to display it
+  //       item[3] = 0;
+
+  //     if (amountData[i][3] < 0) // If the prediction is negative then we don't want to display it
+  //       amountData[i][3] = 0;
+
+  //     for (var r = 5; r < 5 + N; r++)
+  //     {
+  //       item[4] += item[r]; // Quantity Sum
+  //       amountData[i][4] += amountData[i][r]; // Amount Sum
+  //     }
+  //   }
+  //   else // No predictions or averages for only 1 year of data
+  //   {
+  //     item[3] = 0;
+  //     item[4] = 0;
+  //     amountData[i][3] = 0;
+  //     amountData[i][4] = 0;
+  //   }
+
+  //   adagioInfo = csvData.find(sku => item[0].toString().toUpperCase() == sku[itemNum].toString().toUpperCase());
+
+  //   if (adagioInfo != null)
+  //   {
+  //     totalInventory = Number(adagioInfo[2]) + Number(adagioInfo[3]) + Number(adagioInfo[4]) + Number(adagioInfo[5]); // adagioInfo[4] is Trites (400) location; Should we add it in??
+  //     item[1] = adagioInfo[fullDescription]; // Update the Adagio description
+  //     item[2] = totalInventory;
+  //     amountData[i][1] = adagioInfo[fullDescription]; // Update the Adagio description
+  //     amountData[i][2] = totalInventory; // Current Inventory
+  //   }
+    
+  //   item[4] = Math.round(item[4]*10/N)/10; // Average
+  //   item = item.map(qty => (isQtyNotZero(qty)) ? qty : '') // Remove the zeros, '0', and replace them with a blank string (makes the data present cleaner)
+
+  //   amountData[i][4] = Math.round(amountData[i][4]*100/N)/100; // Average
+  //   amountData[i] = amountData[i].map(qty => (isQtyNotZero(qty)) ? qty : '') // Remove the zeros
+
+  //   return item
+  // })
+
   spreadsheet.toast('Computations complete. Data being written to spreadsheet...', '', -1)
 
   const header = ['SKU', 'Descriptions', 'Current Inventory', 'Prediction', 'Average', ...years.reverse()];
@@ -329,7 +387,8 @@ function concatenateAllItemData(spreadsheet)
   amountDataSheet  .clear().getRange(1, 1, numRows_AllAmt,  amountData[0].length).setValues(amountData);
   quantityDataSheet.deleteColumn(1); // Delete SKU column
     amountDataSheet.deleteColumn(1); // Delete SKU column
-  spreadsheet.getSheetByName('Search for Item Quantity or Amount ($)').getRange(1, numYears - 2).setValue('Data was last updated on:\n\n' + new Date().toDateString()).offset(0, numYears - 23).activate();
+  spreadsheet.getSheetByName('Search for Item Quantity or Amount ($)').getRange(1, numYears - 2).setValue('Data was last updated on:\n\n' + new Date().toDateString()).offset(0, numYears - 23).activate()
+    .offset(2, 2).setValue((today.getMonth() < 8) ? currentYear + ' (Prediction)' : nextYear + ' (Prediction)')
   spreadsheet.toast('All Amount / Quantity data has been updated.', 'COMPLETE', -1)
 }
 
@@ -346,9 +405,14 @@ function configureYearlyInvoiceData(values, spreadsheet)
   const currentYear = new Date().getFullYear();
   values.shift() // Remove the header
   values.pop()   // Remove the final row which contains descriptive stats
+  
   const data = reformatData_YearlyInvoiceData(values.sort(sortByDateThenInvoiceNumber))
-  const year = new Array(currentYear - 2012 + 1).fill('').map((_, y) => (currentYear - y).toString()).reverse().find(p => p == data[0][2].getFullYear()) // The year that the data is representing
-  const isSingleYear = data.every(date => date[2].getFullYear() == year);
+  const year = new Array(currentYear - 2012 + 1).fill('').map((_, y) => (currentYear - y).toString()).reverse().find(p => p == data[0][2].substring(0, 4)) // The year that the data is representing
+  const isSingleYear = data.every(date => date[2].substring(0, 4) == year);
+
+  Logger.log(data)
+  Logger.log(year)
+  Logger.log(isSingleYear)
 
   if (isSingleYear) // Does every line of this spreadsheet contain the same year?
   {
@@ -392,6 +456,7 @@ function configureYearlyInvoiceData(values, spreadsheet)
  */
 function reformatData_YearlyInvoiceData(preData)
 {
+  Logger.log(preData)
   const csvData = Utilities.parseCsv(DriveApp.getFilesByName("inventory.csv").next().getBlob().getDataAsString())
   const itemNum = csvData[0].indexOf('Item #');
   const fullDescription = csvData[0].indexOf('Item List')
@@ -526,12 +591,16 @@ function processImportedData(e)
             (info[maxRow] === 1000 && info[maxCol] === 26 && info[numRows] !== 0 && info[numCols] !== 0) ||
             info[isYearlyItemData] || info[isYearlyCustomerItemData] || info[isYearlyInvoiceData]) 
         {
+          
           spreadsheet.toast('Processing imported data...', '', 60)
           const values = sheets[sheet].getSheetValues(1, 1, info[numRows], info[numCols]); 
           const sheetName = sheets[sheet].getSheetName()
           const sheetName_Split = sheetName.split(' ')
           const doesPreviousSheetExist = sheetName_Split[1]
           var fileName = sheetName_Split[0]
+
+          Logger.log(values)
+          Logger.log('sheetName: ' + sheetName)
 
           if (sheets[sheet].getSheetName().substring(0, 7) !== "Copy Of") // Don't delete the sheets that are duplicates
             spreadsheet.deleteSheet(sheets[sheet]) // Delete the new sheet that was created
@@ -1342,7 +1411,7 @@ function searchForCustomerQuantity(e, spreadsheet, sheet)
       }
       else if (values[0][0].toString().includes('-')) // The SKU contains dashes because that's the convention from Adagio
       {
-        skus = values.map(sku => sku[0].substring(0,4) + sku[0].substring(5,9) + sku[0].substring(10)).map(item => {
+        skus = values.map(sku => (sku[0].substring(0,4) + sku[0].substring(5,9) + sku[0].substring(10)).trim()).map(item => {
         
           for (var i = 0; i < data.length; i++)
           {
@@ -2740,7 +2809,7 @@ function searchForQuantityOrAmount(e, spreadsheet, sheet)
       }
       else if (values[0][0].toString().includes('-')) // The SKU contains dashes because that's the convention from Adagio
       {
-        skus = values.map(sku => sku[0].substring(0,4) + sku[0].substring(5,9) + sku[0].substring(10)).map(item => {
+        skus = values.map(sku => (sku[0].substring(0,4) + sku[0].substring(5,9) + sku[0].substring(10)).trim()).map(item => {
         
           for (var i = 0; i < data.length; i++)
           {
