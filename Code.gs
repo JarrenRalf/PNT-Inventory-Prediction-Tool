@@ -201,7 +201,7 @@ function concatenateAllItemData(spreadsheet)
   var n = 1; // The index position used to determine the number of terms in the average
   var totalInventory;
 
-  quanityData = (today.getMonth() < 8) ? // If the summer is over, make preditions for next yeat, otherwise make predictions for this year
+  quanityData = (today.getMonth() < 8) ? // If the summer is over, make predictions for next year, otherwise make predictions for this year
     quanityData.map((item, i) => {
       
       n = 1;
@@ -214,7 +214,7 @@ function concatenateAllItemData(spreadsheet)
       if (N > 1) // Compute the average and make a prediction if we have more than 1 year of data
       {
         [item[3], amountData[i][3]] = getTwoPredictionsUsingLinearRegresssion(
-          years.filter((_, y) => y + 1 >= n && y + 1 <= N), // xData
+          years.filter((_, y) => y + 1 >= n && y + 1 - n < N), // xData
           item.filter((_, t) => t > 5 && t - 5 <= N).reverse(),  // yData1
           amountData[i].filter((_, a) => a > 5 && a - 5 <= N).reverse(), //yData2
           currentYear // X value to predict
@@ -251,11 +251,11 @@ function concatenateAllItemData(spreadsheet)
         amountData[i][2] = totalInventory; // Current Inventory
       }
       
-      item[4] = Math.round(item[4]*10/N)/10; // Average
+      item[4] = (item[4] !== 0) ? Math.round(item[4]*10/N)/10 : item[4]; // Average
 
       item = item.map(qty => (isQtyNotZero(qty)) ? qty : '') // Remove the zeros, '0', and replace them with a blank string (makes the data present cleaner)
 
-      amountData[i][4] = Math.round(amountData[i][4]*100/N)/100; // Average
+      amountData[i][4] = (amountData[i][4] !== 0) ? Math.round(amountData[i][4]*100/N)/100 : amountData[i][4]; // Average
       amountData[i] = amountData[i].map(qty => (isQtyNotZero(qty)) ? qty : '') // Remove the zeros
 
       return item
@@ -271,8 +271,8 @@ function concatenateAllItemData(spreadsheet)
     if (N > 1) // Compute the average and make a prediction if we have more than 1 year of data
     {
       [item[3], amountData[i][3]] = getTwoPredictionsUsingLinearRegresssion(
-        years.filter((_, y) => y + 1 >= n), // xData
-        item.filter((_, t) => t > 4 && t - 5 < N).reverse(),  // yData1
+        years.filter((_, y) => y + 1 >= n && y + 1 - n < N), // xData
+        item.filter((_, t) => t > 4 && t - 5 < N).reverse(), // yData1
         amountData[i].filter((_, a) => a > 4 && a - 5 < N).reverse(), //yData2
         nextYear // X value to predict
       )
@@ -308,10 +308,10 @@ function concatenateAllItemData(spreadsheet)
       amountData[i][2] = totalInventory; // Current Inventory
     }
     
-    item[4] = Math.round(item[4]*10/N)/10; // Average
+    item[4] = (item[4] !== 0) ? Math.round(item[4]*10/N)/10 : item[4]; // Average
     item = item.map(qty => (isQtyNotZero(qty)) ? qty : '') // Remove the zeros, '0', and replace them with a blank string (makes the data present cleaner)
 
-    amountData[i][4] = Math.round(amountData[i][4]*100/N)/100; // Average
+    amountData[i][4] = (amountData[i][4] !== 0) ? Math.round(amountData[i][4]*100/N)/100 : amountData[i][4]; // Average
     amountData[i] = amountData[i].map(qty => (isQtyNotZero(qty)) ? qty : '') // Remove the zeros
 
     return item
@@ -410,10 +410,6 @@ function configureYearlyInvoiceData(values, spreadsheet)
   const year = new Array(currentYear - 2012 + 1).fill('').map((_, y) => (currentYear - y).toString()).reverse().find(p => p == data[0][2].substring(0, 4)) // The year that the data is representing
   const isSingleYear = data.every(date => date[2].substring(0, 4) == year);
 
-  Logger.log(data)
-  Logger.log(year)
-  Logger.log(isSingleYear)
-
   if (isSingleYear) // Does every line of this spreadsheet contain the same year?
   {
     spreadsheet.toast('Sorting and reformatting complete. Updating data for current year...', year, -1)
@@ -456,7 +452,6 @@ function configureYearlyInvoiceData(values, spreadsheet)
  */
 function reformatData_YearlyInvoiceData(preData)
 {
-  Logger.log(preData)
   const csvData = Utilities.parseCsv(DriveApp.getFilesByName("inventory.csv").next().getBlob().getDataAsString())
   const itemNum = csvData[0].indexOf('Item #');
   const fullDescription = csvData[0].indexOf('Item List')
@@ -599,10 +594,7 @@ function processImportedData(e)
           const doesPreviousSheetExist = sheetName_Split[1]
           var fileName = sheetName_Split[0]
 
-          Logger.log(values)
-          Logger.log('sheetName: ' + sheetName)
-
-          if (sheets[sheet].getSheetName().substring(0, 7) !== "Copy Of") // Don't delete the sheets that are duplicates
+          if (sheetName.substring(0, 7) !== "Copy Of") // Don't delete the sheets that are duplicates
             spreadsheet.deleteSheet(sheets[sheet]) // Delete the new sheet that was created
 
           if (info[isYearlyItemData])
@@ -2572,7 +2564,7 @@ function searchForQuantityOrAmount(e, spreadsheet, sheet)
   const row = range.rowStart;
   const rowEnd = range.rowEnd;
 
-  if (row == rowEnd) // Check and make sure only a single row is being edited //  (rowEnd == row || ***rowEnd == 2***)??
+  if (row == rowEnd) // Check and make sure only a single row is being edited // (rowEnd == row || ***rowEnd == 2***)??
   {
     const col = range.columnStart;
     const colEnd = range.columnEnd;
